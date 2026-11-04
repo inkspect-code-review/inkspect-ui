@@ -14,4 +14,11 @@ Copy `.env.example` to `.env.local`. The UI and matching API must use the same d
 
 Use the main `inkspect` repository to assemble compatible self-hosted releases. Repository privacy and package publication are controlled separately; all new repositories currently remain private. No production deployment is performed by local build/test commands.
 
-Licensing is pending owner approval. `LICENSE.proposed` is a draft; this snapshot is not yet a public open-source release.
+Source code is licensed under [MIT](LICENSE). Third-party dependencies retain their own licenses.
+
+## Contributing and community
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup, checks, commit notation and
+opening a pull request. All changes need an entry in [CHANGELOG.md](CHANGELOG.md).
+Follow our [Code of Conduct](CODE_OF_CONDUCT.md), use [SUPPORT.md](SUPPORT.md)
+for help, and report vulnerabilities privately using [SECURITY.md](SECURITY.md).
