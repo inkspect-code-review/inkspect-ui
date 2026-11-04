@@ -1,0 +1,8 @@
+.form { display: grid; gap: 24px; }
+.optional { color: var(--muted); font-weight: 400; }
+.confirmation { padding-block: 4px; }
+.checkboxLabel { display: flex; align-items: flex-start; gap: 12px; margin: 0; font-size: 13px; font-weight: 500; line-height: 1.75; cursor: pointer; }
+.checkboxLabel input { flex: 0 0 18px; width: 18px; height: 18px; margin: 3px 0 0; accent-color: var(--ink); cursor: pointer; }
+.requirement { margin: 8px 0 0 30px; color: var(--muted); font-size: 12px; line-height: 1.7; }
+.signOut { display: block; margin: 20px auto 0; padding: 8px 12px; border: 0; background: transparent; color: var(--muted); font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }
+.signOut:disabled { cursor: default; opacity: .55; }

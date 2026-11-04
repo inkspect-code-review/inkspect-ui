@@ -1,0 +1,4 @@
+@import "../styles/shadcn.css";
+@source "../components";
+@source "../lib";
+@source "../self-hosted";

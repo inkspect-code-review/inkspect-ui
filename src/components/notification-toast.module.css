@@ -1,0 +1,19 @@
+.viewport { position: fixed; right: max(20px, env(safe-area-inset-right)); bottom: max(20px, env(safe-area-inset-bottom)); z-index: 10000; display: flex; flex-direction: column; gap: 10px; width: min(380px, calc(100vw - 40px)); margin: 0; padding: 0; list-style: none; outline: none; }
+.toast { display: flex; align-items: flex-start; gap: 12px; padding: 14px 14px 14px 16px; border: 1px solid var(--dash-border); border-radius: 10px; background: var(--dash-raised); color: var(--dash-text); box-shadow: 0 8px 30px var(--dash-shadow); }
+.toast[data-tone="error"] { border-color: var(--dash-error-border); }
+.toast:focus-visible, .close:focus-visible { outline: 2px solid var(--dash-accent); outline-offset: 2px; }
+.icon { flex-shrink: 0; margin-top: 3px; }
+.toast[data-tone="success"] .icon { color: var(--dash-success-text); }
+.toast[data-tone="error"] .icon { color: var(--dash-error-text); }
+.message { flex: 1; min-width: 0; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.close { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; margin: -6px -6px -6px 0; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--dash-muted); cursor: pointer; }
+.close:hover { background: var(--dash-nav-hover); color: var(--dash-text); }
+.toast[data-state="open"] { animation: toast-enter 160ms ease-out; }
+.toast[data-state="closed"] { animation: toast-exit 120ms ease-in forwards; }
+.toast[data-swipe="move"] { transform: translateX(var(--radix-toast-swipe-move-x)); }
+.toast[data-swipe="cancel"] { transform: translateX(0); transition: transform 200ms ease-out; }
+.toast[data-swipe="end"] { animation: toast-swipe-out 120ms ease-out forwards; }
+@keyframes toast-enter { from { opacity: 0; transform: translateY(8px); } }
+@keyframes toast-exit { to { opacity: 0; } }
+@keyframes toast-swipe-out { from { transform: translateX(var(--radix-toast-swipe-end-x)); } to { transform: translateX(calc(100% + 20px)); } }
+@media (prefers-reduced-motion: reduce) { .toast { animation: none !important; transition: none !important; } }

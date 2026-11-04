@@ -1,0 +1,71 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is([data-dashboard-theme="classic"] *, [data-dashboard-theme="landing-dark"] *, [data-dashboard-theme="chatgpt-desktop"] *));
+
+@theme inline {
+  --font-sans: "Manrope Variable", Arial, sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--foreground);
+  --color-muted: var(--muted-surface);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--foreground);
+  --color-sidebar-accent: var(--accent);
+  --color-sidebar-accent-foreground: var(--foreground);
+  --color-sidebar-border: var(--border);
+  --color-sidebar-ring: var(--ring);
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.75rem;
+}
+
+/* Share the existing palette with the new shell and portalled menus. */
+[data-dashboard-theme] {
+  --background: var(--dash-panel);
+  --foreground: var(--dash-text);
+  --card: var(--dash-card);
+  --popover: var(--dash-raised);
+  --primary: var(--dash-primary);
+  --primary-foreground: var(--dash-primary-text);
+  --secondary: var(--dash-secondary);
+  --muted-surface: var(--dash-raised);
+  --muted-foreground: var(--dash-muted);
+  --accent: var(--dash-nav-active);
+  --destructive: var(--dash-error-text);
+  --border: var(--dash-border);
+  --input: var(--dash-input-border);
+  --ring: var(--dash-accent);
+  --sidebar: var(--dash-bg);
+  --sidebar-primary: var(--dash-nav-active);
+}
+
+@layer base {
+  * { @apply border-border; }
+  [data-slot="sidebar-wrapper"], [data-slot="sheet-content"], [data-slot="dropdown-menu-content"] {
+    color-scheme: var(--dash-scheme);
+  }
+  [data-slot="sidebar-wrapper"] { color: var(--foreground); }
+  [data-slot="sidebar-input"] { min-height: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-slot] { animation: none !important; transition: none !important; }
+}

@@ -1,0 +1,39 @@
+.usage {max-width:1240px;margin:0 auto;display:grid;gap:18px;min-width:0;color:var(--dash-text);}
+.toolbar,.controls,.filters {display:flex;align-items:center;gap:8px;flex-wrap:wrap;}.toolbar {justify-content:space-between;gap:16px;}
+.usage button,.usage select {font:inherit;font-size:12px;color:var(--dash-text);border:1px solid var(--dash-border);border-radius:6px;background:var(--dash-card);padding:7px 11px;min-height:34px;}
+.selectField {position:relative;display:inline-flex;color:var(--dash-text);}
+.selectField select {appearance:none;padding-right:36px;}
+.selectField::after {content:"";position:absolute;right:14px;top:50%;width:6px;height:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:translateY(-70%) rotate(45deg);pointer-events:none;}
+.usage button {cursor:pointer;}.usage button:disabled {opacity:.4;cursor:default;}.usage button[aria-pressed=true] {border-color:var(--dash-text);}.usage button:focus-visible,.usage select:focus-visible {outline:2px solid var(--dash-text);outline-offset:3px;}.controls label {display:flex;align-items:center;gap:8px;margin:0;color:var(--dash-muted);font-size:12px;}
+.summary {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;background:var(--dash-feature);border:1px solid var(--dash-feature-border);border-radius:var(--dash-panel-radius);overflow:hidden;}.summary>div {min-width:0;padding:24px;display:grid;gap:9px;}.summary>div+div {border-left:1px solid var(--dash-feature-border);}.summary span {font-size:12px;color:var(--dash-muted);}.summary strong {font-size:30px;font-weight:550;letter-spacing:-.6px;overflow-wrap:anywhere;}.summary small {font-size:11px;line-height:1.6;color:var(--dash-muted);}
+.panel {min-width:0;background:var(--dash-card);border:1px solid var(--dash-border);border-radius:var(--dash-panel-radius);overflow:hidden;}.tableWrap {overflow-x:auto;}.usage table {width:100%;border-collapse:collapse;text-align:left;font-size:12px;}.usage th {color:var(--dash-muted);font-weight:500;white-space:nowrap;}.usage th,.usage td {padding:14px 16px;border-bottom:1px solid var(--dash-border);vertical-align:top;}.usage td strong {font-weight:500;text-transform:capitalize;}.usage td small {display:block;margin-top:5px;color:var(--dash-muted);font-size:11px;}.usage td {font-variant-numeric:tabular-nums;}.status {text-transform:capitalize;}.status[data-paused=true] {color:var(--dash-muted);}.detail {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin:4px 0;}.detail dt {font-size:11px;color:var(--dash-muted);margin-bottom:6px;}.detail dd {margin:0;overflow-wrap:anywhere;font-size:12px;}.pagination {display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:12px 16px;font-size:12px;color:var(--dash-muted);}.empty {padding:32px 20px;text-align:center;color:var(--dash-muted);font-size:13px;}.note {font-size:12px;color:var(--dash-muted);line-height:1.6;margin:0;}.error {color:var(--dash-error-text);font-size:13px;}.srOnly {position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);}
+@media(max-width:900px){.summary{grid-template-columns:repeat(2,minmax(0,1fr));}.summary>div:nth-child(3){border-left:0;}.summary>div:nth-child(n+3){border-top:1px solid var(--dash-feature-border);}.detail{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:480px){.summary{gap:0;}.summary>div{padding:14px;}.summary strong{font-size:20px;}.detail{grid-template-columns:1fr;}}
+.groupHint {margin:0;padding:14px 16px;border-bottom:1px solid var(--dash-border);font-size:12px;line-height:1.6;color:var(--dash-muted);}
+.groupDetails {display:grid;gap:16px;min-width:0;}.groupDetails summary {cursor:pointer;text-transform:capitalize;}.groupDetails summary:focus-visible {outline:2px solid var(--dash-text);outline-offset:3px;}.groupDetails details[open] summary {margin-bottom:12px;}.groupDetails details .detail {margin-top:14px;grid-template-columns:repeat(2,minmax(0,1fr));}.status {display:block;}.status+.status {margin-top:5px;}
+.chart {min-width:0;padding:20px 20px 14px;background:var(--dash-card);border:1px solid var(--dash-border);border-radius:var(--dash-panel-radius);}
+.chartHeading {display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:28px;}
+.chartHeading h2 {margin:0;font-size:13px;font-weight:550;}
+.chartLegend {display:flex;gap:18px;color:var(--dash-muted);font-size:11px;}
+.chartLegend span {display:flex;align-items:center;gap:7px;}
+.chartLegend i {display:block;width:8px;height:8px;}
+.inputSwatch,.inputBar {background:var(--dash-chart-input);}
+.outputSwatch,.outputBar {background:var(--dash-chart-output);}
+.chartBody {display:flex;gap:8px;min-width:0;}
+.chartAxis {height:192px;flex:0 0 38px;display:flex;flex-direction:column;justify-content:space-between;text-align:right;color:var(--dash-muted);font-size:10px;font-variant-numeric:tabular-nums;}
+.chartAxis span:first-child {transform:translateY(-50%);}
+.chartAxis span:last-child {transform:translateY(50%);}
+.chartScroll {flex:1;min-width:0;overflow-x:auto;}
+.chartPlot {position:relative;box-sizing:border-box;height:220px;padding:0 24px 28px;}
+.chartGrid {position:absolute;inset:0 24px 28px;display:flex;flex-direction:column;justify-content:space-between;pointer-events:none;}
+.chartGrid span {border-top:1px solid var(--dash-border);}
+.chartColumns {position:relative;display:flex;height:192px;}
+.chartColumn {position:relative;flex:1;min-width:0;}
+.chartColumn:focus-visible {outline:1px solid var(--dash-text);outline-offset:2px;}
+.chartBars {height:100%;display:flex;justify-content:center;align-items:flex-end;gap:2px;}
+.chartBars>span {width:calc(50% - 2px);max-width:12px;}
+.chartDate {position:absolute;top:calc(100% + 10px);left:50%;transform:translateX(-50%);white-space:nowrap;color:var(--dash-muted);font-size:10px;}
+.chartReadout {min-height:18px;margin:10px 0 0 46px;color:var(--dash-muted);font-size:11px;line-height:1.6;font-variant-numeric:tabular-nums;}
+.chartEmpty {height:248px;margin:0;display:grid;place-items:center;color:var(--dash-muted);font-size:12px;}
+.chartNoTokens {position:absolute;inset:0 24px 28px;margin:0;display:grid;place-items:center;pointer-events:none;color:var(--dash-muted);font-size:12px;}
+@media(max-width:480px){.chart{padding:18px 12px 12px;}.chartLegend{gap:12px;}}

@@ -1,0 +1,30 @@
+.content { min-width: 0; overflow-wrap: anywhere; font-size: 13px; line-height: 1.85; }
+.content > :first-child { margin-top: 0; }
+.content > :last-child { margin-bottom: 0; }
+.content p { margin: 0 0 12px; }
+.content :is(h1, h2, h3, h4, h5, h6) { margin: 22px 0 10px; font-weight: 650; line-height: 1.4; }
+.content h1 { font-size: 20px; }
+.content h2 { font-size: 18px; }
+.content h3 { font-size: 16px; }
+.content :is(h4, h5, h6) { font-size: 14px; }
+.content strong { font-weight: 650; }
+.content :is(ul, ol) { margin: 10px 0 14px; padding-left: 24px; }
+.content ul { list-style: disc; }
+.content ol { list-style: decimal; }
+.content li { padding-left: 3px; margin: 4px 0; }
+.content li > :is(ul, ol) { margin-block: 4px; }
+.content li > p { margin-block: 5px; }
+.content a { color: var(--dash-accent); text-decoration: underline; text-underline-offset: 3px; }
+.content blockquote { margin: 14px 0; padding: 2px 0 2px 14px; border-left: 3px solid var(--dash-strong-border); color: var(--dash-muted); }
+.content blockquote > :last-child { margin-bottom: 0; }
+.content code { padding: 2px 5px; border-radius: 4px; background: var(--dash-panel); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .92em; }
+.content pre { max-width: 100%; margin: 14px 0; padding: 14px; overflow-x: auto; border: 1px solid var(--dash-border); border-radius: 6px; background: var(--dash-panel); white-space: pre; overflow-wrap: normal; line-height: 1.65; }
+.content pre code { padding: 0; border-radius: 0; background: transparent; font-size: 12px; }
+.content [data-markdown-table] { max-width: 100%; overflow-x: auto; margin: 14px 0; }
+.content table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.content :is(th, td) { min-width: 90px; padding: 8px 10px; border: 1px solid var(--dash-border); text-align: left; vertical-align: top; }
+.content th { background: var(--dash-panel); font-weight: 650; }
+.content hr { margin: 20px 0; border: 0; border-top: 1px solid var(--dash-border); }
+.content :global(.contains-task-list) { list-style: none; padding-left: 4px; }
+.content input[type="checkbox"] { margin-right: 6px; accent-color: var(--dash-accent); }
+.content :is(a, pre, [data-markdown-table]):focus-visible { outline: 2px solid var(--dash-accent); outline-offset: 3px; }

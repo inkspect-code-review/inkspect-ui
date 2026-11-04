@@ -1,0 +1,115 @@
+.layout { display: flex; flex-direction: row; flex: 1 0 auto; min-width: 0; gap: 24px; }
+/* Wide screens get room for one-line tab summaries; narrower ones keep the original 180px and wrap them. */
+.tabList { display: flex; flex-direction: column; align-self: flex-start; flex: 0 0 clamp(180px, 20%, 216px); gap: 4px; }
+.tab { display: inline-flex; align-items: flex-start; justify-content: flex-start; gap: 10px; min-height: 42px; padding: 10px 12px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--dash-muted); font-size: 13px; font-weight: 550; line-height: 1.5; text-align: left; }
+.tab:hover { color: var(--dash-text); background: var(--dash-nav-hover); }
+.tab[data-state="active"] { border-color: var(--dash-nav-border); background: var(--dash-nav-active); color: var(--dash-text); }
+.tabText { display: grid; gap: 2px; min-width: 0; }
+.tabLabel { min-width: 0; }
+.tabDescription { color: var(--dash-muted); font-size: 11px; font-weight: 400; line-height: 1.5; }
+/* Center the icon on the label's first line. */
+.tab svg { flex-shrink: 0; margin-top: 2px; }
+.tabPanel { flex: 1; min-width: 0; background: var(--dash-card); border: 1px solid var(--dash-border); border-radius: 12px; }
+/* Keep form state mounted while removing inactive panels from layout and focus order. */
+.tabPanel[data-state="inactive"] { display: none; }
+.tabPanel:focus-visible { outline: 2px solid var(--dash-accent); outline-offset: 2px; }
+.section { min-width: 0; padding: 24px 28px; }
+.tabPanel > .section + .section { border-top: 1px solid var(--dash-border); }
+.sectionHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 22px; }
+.sectionHeader h2 { margin: 0; color: var(--dash-text); font-size: 17px; font-weight: 650; letter-spacing: -.4px; line-height: 1.4; }
+.sectionHeader p { max-width: 60ch; margin: 7px 0 0; color: var(--dash-muted); font-size: 12px; line-height: 1.7; }
+.row { display: grid; grid-template-columns: minmax(140px, .8fr) minmax(0, 1.2fr); align-items: start; gap: 24px; padding: 22px 0; border-top: 1px solid var(--dash-border); }
+.fieldDescription label, .fieldDescription h3 { display: block; margin: 0; font-size: 12px; font-weight: 600; line-height: 1.6; color: var(--dash-text); }
+.fieldDescription p, .hint { margin: 5px 0 0; font-size: 11px; font-weight: 400; line-height: 1.7; color: var(--dash-muted); }
+.field { min-width: 0; }
+.field .input { width: 100%; min-width: 0; min-height: 40px; padding: 10px 12px; font-size: 13px; line-height: 1.5; border: 1px solid var(--dash-input-border); border-radius: 7px; background: var(--dash-input); color: var(--dash-text); }
+.value { margin: 0; padding-block: 4px; font-size: 13px; overflow-wrap: anywhere; }
+.readOnlyValue { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; padding-block: 4px; font-size: 12px; }
+.readOnlyValue > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.readOnlyLabel { flex-shrink: 0; font-size: 10px; color: var(--dash-muted); }
+.formFooter { display: flex; align-items: center; justify-content: space-between; gap: 20px; border-top: 1px solid var(--dash-border); padding-top: 18px; }
+.formFooter .hint { margin: 0; }
+.formFooter button { flex-shrink: 0; }
+.saved { display: flex; align-items: center; gap: 7px; margin: 0; color: var(--dash-success-text); font-size: 11px; line-height: 1.6; }
+.saved svg { flex-shrink: 0; width: 15px; height: 15px; }
+.profile { display: flex; align-items: center; gap: 14px; padding-bottom: 20px; }
+.avatar { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; background: var(--dash-avatar-bg); color: var(--dash-avatar-text); font-size: 14px; font-weight: 600; }
+.profile > div { display: grid; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
+.profile strong { font-size: 13px; font-weight: 600; }
+.profile div > span { color: var(--dash-muted); font-size: 12px; }
+@media (max-width: 800px) {
+  .layout { gap: 16px; }
+  .tabList { flex-basis: 150px; }
+  .section { padding: 22px; }
+  .row { grid-template-columns: 1fr; gap: 12px; }
+}
+@media (max-width: 600px) {
+  .layout { gap: 12px; }
+  .tabList { flex-basis: 42px; }
+  .tab { align-items: center; justify-content: center; padding: 10px; }
+  .tab svg { margin-top: 0; }
+  .tabText { display: none; }
+}
+@media (max-width: 480px) {
+  .section { padding: 22px 18px; }
+  .sectionHeader { flex-wrap: wrap; gap: 10px; margin-bottom: 22px; }
+  .formFooter { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .formFooter button { align-self: flex-end; }
+  .readOnlyValue { flex-wrap: wrap; gap: 6px; }
+}
+
+.personalSheet { margin-top: 24px; }
+.automaticToggle { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; cursor: pointer; }
+.automaticToggle input { width: 18px; height: 18px; accent-color: var(--dash-accent); }
+
+.securityStack { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; font-size: 12px; }
+.securityStack form { width: 100%; }
+.securityQr { padding: 16px; background: white; border-radius: 8px; max-width: 100%; }
+.securityQr svg { display: block; max-width: 100%; height: auto; }
+.securitySecret { display: block; max-width: 100%; overflow-wrap: anywhere; white-space: pre-wrap; padding: 12px; border: 1px solid var(--dash-border); border-radius: 7px; line-height: 1.8; user-select: all; }
+.securityKey { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; width: 100%; overflow-wrap: anywhere; }
+.securityKey > span { flex: 1; min-width: 0; }
+
+.securityConfirmation { display: flex; align-items: flex-start; gap: 9px; margin: 0; color: var(--dash-muted); font-size: 12px; font-weight: 400; line-height: 1.6; cursor: pointer; }
+.securityConfirmation input[type="checkbox"] { flex: 0 0 18px; width: 18px; height: 18px; min-height: 0; margin: 1px 0 0; padding: 0; accent-color: var(--dash-text); cursor: pointer; }
+.securityConfirmation input:disabled { cursor: default; }
+
+.securityExpanded { grid-column: 1 / -1; width: 100%; }
+.recoveryPanel, .setupPanel { width: 100%; min-width: 0; }
+.recoveryHeader { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.recoveryHeader h4, .setupInstructions h4 { margin: 0; font-size: 12px; font-weight: 600; color: var(--dash-text); }
+.recoveryHeader button { flex-shrink: 0; }
+.recoveryGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 6px 12px; padding: 12px; margin: 12px 0; list-style: none; border: 1px solid var(--dash-border); border-radius: 7px; background: var(--dash-input); }
+.recoveryGrid li { padding: 3px 0; text-align: center; }
+.recoveryGrid code { font-size: 12px; line-height: 1.6; user-select: all; }
+.setupPanel { display: grid; gap: 16px; }
+.setupAuthenticator { display: flex; align-items: flex-start; gap: 20px; }
+.setupAuthenticator .securityQr { padding: 10px; flex-shrink: 0; }
+.setupInstructions { min-width: 0; }
+.setupInstructions details { margin-top: 10px; font-size: 11px; }
+.setupInstructions summary { cursor: pointer; }
+.setupVerification { display: grid; gap: 12px; }
+.setupVerification label { margin-bottom: 6px; }
+.setupVerification .securityConfirmation { margin-bottom: 0; }
+.setupActions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 480px) {
+  .recoveryHeader { align-items: flex-start; flex-direction: column; gap: 8px; }
+  .setupAuthenticator { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .recoveryGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 8px; }
+}
+
+.recoveryBox { position: relative; margin: 12px 0; border: 1px solid var(--dash-border); border-radius: 7px; background: var(--dash-input); }
+.recoveryBox .recoveryGrid { margin: 0; padding-right: 48px; border: 0; background: transparent; }
+.copyCodes { position: absolute; top: 7px; right: 7px; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--dash-muted); cursor: pointer; }
+.copyCodes:hover { background: var(--dash-nav-hover); color: var(--dash-text); }
+.copyCodes:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+/* Reserve the manual-key reveal so opening it never moves the verification form. */
+.setupInstructions details { min-height: 112px; }
+.setupInstructions .securitySecret { height: 80px; overflow: auto; margin-top: 8px; }
+
+.tabPanel.accountPanel { background: transparent; border: 0; border-radius: 0; }
+.accountCards { display: grid; gap: 20px; min-width: 0; }
+.accountCard { background: var(--dash-card); border: 1px solid var(--dash-border); border-radius: 12px; }
+
+.manualKeyBox { position: relative; margin-top: 8px; }
+.setupInstructions .manualKeyBox .securitySecret { margin-top: 0; padding-right: 48px; }

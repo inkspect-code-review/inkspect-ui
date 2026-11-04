@@ -1,0 +1,16 @@
+.panel { display: grid; gap: 24px; color: var(--dash-text); }
+.panel section { border: 1px solid var(--dash-border); border-radius: 12px; padding: 24px; background: var(--dash-panel); }
+.panel h2 { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+.panel p, .panel small { font-size: 13px; line-height: 1.6; }
+.scroll { overflow-x: auto; margin-top: 20px; }
+.panel table { border-collapse: collapse; width: 100%; text-align: left; font-size: 13px; }
+.panel th, .panel td { padding: 12px; border-bottom: 1px solid var(--dash-border); }
+.panel caption { text-align: left; margin-bottom: 12px; font-weight: 600; }
+.panel td span { display: block; margin-top: 4px; }
+.form { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; margin: 20px 0; }
+.panel label { display: grid; gap: 8px; font-size: 13px; }
+.form label:first-child { flex: 1; min-width: 180px; }
+.panel input, .panel select, .panel button { border: 1px solid var(--dash-border); border-radius: 6px; padding: 10px 12px; font: inherit; background: var(--dash-panel); color: inherit; }
+.panel button { cursor: pointer; margin-right: 6px; }
+.panel button:disabled { cursor: default; opacity: .5; }
+.panel :is(button,input,select):focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }

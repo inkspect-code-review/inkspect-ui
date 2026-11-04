@@ -1,0 +1,30 @@
+.themeFieldset { container-type: inline-size; min-inline-size: 0; border: 0; padding: 0; margin: 0; }
+.themeOptions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.themeOption { display: block; position: relative; min-width: 0; padding: 6px 6px 12px; margin: 0; border: 1px solid var(--dash-border); border-radius: 9px; cursor: pointer; }
+.themeOption:hover { border-color: var(--dash-muted); }
+.themeOption[data-selected="true"] { border-color: var(--dash-accent); box-shadow: 0 0 0 1px var(--dash-accent); }
+.themeOption:has(input:focus-visible) { outline: 2px solid var(--dash-accent); outline-offset: 4px; }
+.themePreview { display: grid; grid-template-columns: 29% minmax(0, 1fr); height: 112px; border: 1px solid var(--dash-border); border-radius: 4px; background: var(--dash-bg); overflow: hidden; }
+.previewSidebar { display: flex; flex-direction: column; gap: 7px; padding: 13px 7px; border-right: 1px solid var(--dash-border); }
+.previewBrand { width: 11px; height: 13px; border-radius: 6px 6px 6px 1px; background: var(--dash-text); margin-bottom: 4px; }
+.previewSwitcher { height: 13px; border: 1px solid var(--dash-border); border-radius: 2px; background: var(--dash-panel); }
+.previewActive { height: 10px; background: var(--dash-nav-active); border-left: 2px solid var(--dash-accent); border-radius: 1px; }
+.previewNav { width: 70%; height: 3px; background: var(--dash-muted); opacity: .5; }
+.previewWorkspace { background: var(--dash-panel); }
+.previewTopbar { display: block; height: 21px; background: var(--dash-chrome); border-bottom: 1px solid var(--dash-border); }
+.previewContent { display: block; padding: 13px; }
+.previewTitle { display: block; width: 50%; height: 4px; background: var(--dash-text); margin-bottom: 10px; }
+.previewPanel { display: grid; gap: 5px; padding: 8px; background: var(--dash-card); border: 1px solid var(--dash-border); border-radius: 2px; }
+.previewPanel > span { height: 2px; background: var(--dash-muted); opacity: .4; }
+.previewPanel > span:last-child { width: 65%; }
+.previewButton { display: block; width: 29%; height: 9px; background: var(--dash-primary); border: 1px solid var(--dash-primary-border); border-radius: 2px; margin-top: 8px; }
+.themeLabel { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 13px 6px 4px; }
+.themeLabel strong { font-size: 12px; font-weight: 600; }
+.themeSelected { display: grid; place-items: center; width: 18px; height: 18px; flex-shrink: 0; }
+.themeSelected svg { width: 15px; height: 15px; }
+.themeCaption { display: block; padding: 0 6px; font-size: 11px; color: var(--dash-muted); font-weight: 400; line-height: 1.6; }
+
+@media (max-width: 480px) { .themeOptions { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } .themePreview { height: 100px; } .previewContent { padding: 10px; } .themeCaption { line-height: 1.6; } }
+@media (max-width: 360px) { .themeOptions { grid-template-columns: 1fr; } }
+
+@container (min-width: 640px) { .themeOptions { grid-template-columns: repeat(4, minmax(0, 1fr)); } }

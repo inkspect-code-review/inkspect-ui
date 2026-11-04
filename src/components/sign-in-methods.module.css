@@ -1,0 +1,19 @@
+.section { border-top: 1px solid var(--dash-border); padding-top: 18px; }
+.heading { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
+.description, .note { margin: 0; color: var(--dash-muted); font-size: 12px; line-height: 1.75; overflow-wrap: anywhere; }
+.description strong { color: var(--dash-text); font-weight: 500; }
+.methods { list-style: none; margin: 14px 0; padding: 0 16px; border: 1px solid var(--dash-border); border-radius: 8px; background: var(--dash-panel); }
+.method { display: flex; align-items: center; gap: 14px; min-height: 62px; padding: 10px 0; }
+.method + .method { border-top: 1px solid var(--dash-border); }
+.icon { display: grid; place-items: center; flex: 0 0 36px; width: 36px; height: 36px; border: 1px solid var(--dash-border); border-radius: 9px; background: var(--dash-card); }
+.identity { display: grid; gap: 4px; flex: 1; min-width: 0; }
+.name { font-size: 13px; font-weight: 600; }
+.detail { font-size: 11px; line-height: 1.5; color: var(--dash-muted); }
+.connected { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; white-space: nowrap; color: var(--dash-success-text); }
+.connected svg { width: 14px; height: 14px; }
+.unavailable { color: var(--dash-muted); font-size: 11px; }
+@media (max-width: 640px) {
+  .method { gap: 10px; flex-wrap: wrap; }
+  .identity { flex-basis: calc(100% - 46px); }
+  .method > a, .connected, .unavailable { margin-left: 46px; }
+}

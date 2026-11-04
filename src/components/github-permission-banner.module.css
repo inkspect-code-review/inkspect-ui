@@ -1,0 +1,19 @@
+.banner { display: flex; gap: 12px; margin: 16px 24px 0; padding: 16px 18px; flex-shrink: 0; border: 1px solid color-mix(in srgb, var(--dash-warning-text) 35%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--dash-warning-text) 7%, var(--dash-panel)); color: var(--dash-text); }
+.icon { flex-shrink: 0; margin-top: 2px; color: var(--dash-warning-text); }
+.banner { max-height: 35svh; overflow-y: auto; }
+.content { min-width: 0; }
+.content strong { font-size: 14px; font-weight: 650; }
+.content p { margin: 5px 0 0; font-size: 13px; line-height: 1.55; color: var(--dash-muted); max-width: 100ch; }
+.accounts { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 12px; }
+.account { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 12px; }
+.account > span { font-weight: 650; }
+.account a, .account button { display: inline-flex; align-items: center; gap: 5px; min-height: 30px; border-radius: 6px; padding: 4px 8px; font: inherit; color: inherit; }
+.account a { text-decoration: none; border: 1px solid color-mix(in srgb, currentColor 25%, transparent); }
+.account button { background: none; border: 0; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.account button:disabled { opacity: .6; cursor: wait; }
+.account a:focus-visible, .account button:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.confirmation { margin: 12px 24px 0; font-size: 13px; color: var(--dash-success-text); }
+.spinner { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+@media (max-width: 640px) { .banner { margin: 12px 12px 0; padding: 12px; } }
