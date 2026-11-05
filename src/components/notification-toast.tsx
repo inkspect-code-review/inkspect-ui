@@ -2,11 +2,11 @@
 
 import { Portal, Toast } from "radix-ui";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { CircleAlert, CircleCheck, Info, X } from "lucide-react";
+import { CircleAlert, CircleCheck, Info, Sparkles, X } from "lucide-react";
 import styles from "./notification-toast.module.css";
 
 type ToastAction = { label: string; onClick: () => void };
-export type ToastMessage = { id: number; tone: "success" | "error" | "info"; message: string; action?: ToastAction };
+export type ToastMessage = { id: number; tone: "success" | "error" | "info" | "celebration"; message: string; action?: ToastAction };
 type Notifications = {
   notify: (tone: ToastMessage["tone"], message: string, action?: ToastAction) => number;
   clearToast: () => void;
@@ -89,8 +89,8 @@ function ToastOutlet({ toasts, onDismiss }: { toasts: ToastMessage[]; onDismiss?
   return <Toast.Provider swipeDirection="right">
     {toasts.map(toast => {
       const error = toast.tone === "error";
-      return <Toast.Root key={toast.id} className={styles.toast} data-tone={toast.tone} type={error ? "foreground" : "background"} duration={error ? Infinity : 5000} onOpenChange={open => { if (!open) onDismiss?.(toast.id); }}>
-        {error ? <CircleAlert className={styles.icon} size={16} aria-hidden="true" /> : toast.tone === "info" ? <Info className={styles.icon} size={16} aria-hidden="true" /> : <CircleCheck className={styles.icon} size={16} aria-hidden="true" />}
+      return <Toast.Root key={toast.id} className={styles.toast} data-tone={toast.tone} type={error ? "foreground" : "background"} duration={error ? Infinity : toast.tone === "celebration" ? 9000 : 5000} onOpenChange={open => { if (!open) onDismiss?.(toast.id); }}>
+        {error ? <CircleAlert className={styles.icon} size={16} aria-hidden="true" /> : toast.tone === "info" ? <Info className={styles.icon} size={16} aria-hidden="true" /> : toast.tone === "celebration" ? <Sparkles className={styles.icon} size={24} aria-hidden="true" /> : <CircleCheck className={styles.icon} size={16} aria-hidden="true" />}
         <div className={styles.body}>
           <Toast.Description className={styles.message}>{toast.message}</Toast.Description>
           {toast.action && <Toast.Action className={styles.action} altText={toast.action.label} onClick={toast.action.onClick}>{toast.action.label}</Toast.Action>}

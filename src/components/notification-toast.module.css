@@ -20,3 +20,9 @@
 @keyframes toast-exit { to { opacity: 0; } }
 @keyframes toast-swipe-out { from { transform: translateX(var(--radix-toast-swipe-end-x)); } to { transform: translateX(calc(100% + 20px)); } }
 @media (prefers-reduced-motion: reduce) { .toast { animation: none !important; transition: none !important; } }
+.toast[data-tone="celebration"] {
+  align-items: center; padding: 18px; border-color: var(--dash-warning-text, #af8335);
+  background: linear-gradient(115deg, color-mix(in srgb, var(--dash-warning-text, #af8335) 17%, var(--dash-raised, white)), var(--dash-raised, white));
+}
+.toast[data-tone="celebration"] .icon { box-sizing: content-box; margin: 0; padding: 8px; border-radius: 50%; background: var(--dash-warning-text, #af8335); color: var(--dash-panel, white); }
+.toast[data-tone="celebration"] .message { font-size: 15px; font-weight: 650; }

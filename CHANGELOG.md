@@ -10,6 +10,9 @@ as appropriate. The package's `0.1.0` version is not a claim of a tagged release
 
 #### Added
 
+- Support dashboard header announcements and a highlighted toast for celebrations.
+- Show the pull request title in review details and identify a paused review holding up the queue.
+
 - Let workspace owners and admins select which finding severities fail the GitHub review check.
 
 - Manage ignored PR authors in workspace settings, including a shortcut to add Dependabot.

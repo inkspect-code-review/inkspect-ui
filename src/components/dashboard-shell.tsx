@@ -7,7 +7,7 @@ import { reportBrowserError } from "@inkspect/core/lib/diagnostics/client";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition, type FormEvent, type ComponentType } from "react";
+import { useEffect, useRef, useState, useTransition, type FormEvent, type ReactNode, type ComponentType } from "react";
 import { authClient } from "@inkspect/core/lib/auth-client";
 import { workspaceHomeHref, type DashboardSummary, type DashboardMember, type DashboardOrganization, type DashboardSection } from "@inkspect/core/lib/dashboard";
 import { PersonalSettings, SettingsWorkspace } from "./settings-workspace";
@@ -66,7 +66,7 @@ export type DashboardShellProps = {
   user: { id: string; name: string; email: string };
 };
 
-export function DashboardShell({ panels: { MembersPanel, UsagePanel, FeedbackDialog, extensions }, canCreateOrganization, section, supportContext, turnstileSiteKey, organizations, activeOrganization, members, user, github, summary, onboarding = false, onboardingError = false, integrationError, integrationConnected = false, signInMethods, logoUploadsEnabled = false }: DashboardShellProps & { panels: DashboardPanels }) {
+export function DashboardShell({ headerAnnouncement, panels: { MembersPanel, UsagePanel, FeedbackDialog, extensions }, canCreateOrganization, section, supportContext, turnstileSiteKey, organizations, activeOrganization, members, user, github, summary, onboarding = false, onboardingError = false, integrationError, integrationConnected = false, signInMethods, logoUploadsEnabled = false }: DashboardShellProps & { panels: DashboardPanels; headerAnnouncement?: ReactNode }) {
   const edition = useDashboardEdition();
   const ExtensionPanel = extensions?.[section];
   const workspaceMain = useRef<HTMLDivElement>(null);
@@ -190,6 +190,7 @@ export function DashboardShell({ panels: { MembersPanel, UsagePanel, FeedbackDia
         </BreadcrumbList></Breadcrumb>
         <div className={styles.headerActions}><CommandMenu section={section} homeHref={homeHref} />{activeOrganization && <div className={styles.headerChat}><WorkspaceChatLauncher scopeKey={chatScopeKey} panelId={chatPanelId} /></div>}</div>
       </header>
+      {headerAnnouncement}
       {activeOrganization && !onboarding && <GitHubPermissionBanner key={activeOrganization.id} organizationId={activeOrganization.id} />}
       <div ref={workspaceMain} className={`${styles.main} ${onboarding && activeOrganization ? styles.onboardingMain : ""} ${isSplitWorkspace ? styles.repositoriesMain : ""} ${isSettingsWorkspace ? styles.settingsMain : ""}`} aria-busy={busy}>
         <div className={`${styles.pageContent} ${onboarding && activeOrganization ? styles.onboardingContent : ""} ${isSplitWorkspace ? styles.repositoriesContent : ""} ${isSettingsWorkspace ? styles.settingsContent : ""}`}>
