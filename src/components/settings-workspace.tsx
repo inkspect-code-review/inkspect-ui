@@ -11,36 +11,43 @@ import type { SignInMethod } from "@inkspect/core/lib/login-providers";
 import { AccountSecurity } from "./account-security";
 import { ByokSettings } from "./byok-settings";
 import { AutomaticReviewSettings } from "./automatic-review-settings";
-import { DashboardIcon } from "./dashboard-icon";
+import { useNotifications } from "./notification-toast";
 import { SignInMethods } from "./sign-in-methods";
 import { ThemePicker } from "./theme-picker";
 import { WorkspaceLogo } from "./workspace-logo";
 import shared from "./dashboard.module.css";
 import styles from "./settings.module.css";
 
-export function SettingsWorkspace({ organization, canManage, user, signInMethods, logoUploadsEnabled }: {
+type SettingsWorkspaceProps = {
   organization: DashboardOrganization;
   canManage: boolean;
   user: { name: string; email: string };
   signInMethods?: SignInMethod[];
   logoUploadsEnabled: boolean;
-}) {
+};
+
+export function SettingsWorkspace(props: SettingsWorkspaceProps) {
+  return <WorkspaceSettings {...props} />;
+}
+
+function WorkspaceSettings({ organization, canManage, user, signInMethods, logoUploadsEnabled }: SettingsWorkspaceProps) {
   const router = useRouter();
+  const { notify, clearToast } = useNotifications();
   const [name, setName] = useState(organization.name);
   const [saving, setSaving] = useState(false);
   const [refreshing, startTransition] = useTransition();
-  const [error, setError] = useState("");
-  const [saved, setSaved] = useState(false);
+  const [invalidName, setInvalidName] = useState(false);
   const busy = saving || refreshing;
 
   async function renameWorkspace(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy || !canManage) return;
     const trimmed = name.trim();
-    setError("");
-    setSaved(false);
+    clearToast();
+    setInvalidName(false);
     if (trimmed.length < 2 || trimmed.length > 80) {
-      setError("Enter a workspace name between 2 and 80 characters.");
+      setInvalidName(true);
+      notify("error", "Enter a workspace name between 2 and 80 characters.");
       return;
     }
     if (trimmed === organization.name) return;
@@ -49,15 +56,15 @@ export function SettingsWorkspace({ organization, canManage, user, signInMethods
       const result = await authClient.organization.update({ organizationId: organization.id, data: { name: trimmed } });
       if (result.error) {
         reportBrowserError("browser.dashboard.shell", result.error);
-        setError("Couldn’t update the workspace name. Check that you’re still an owner or admin and try again.");
+        notify("error", "Couldn’t update the workspace name. Check that you’re still an owner or admin and try again.");
         return;
       }
       setName(trimmed);
-      setSaved(true);
+      notify("success", "Workspace name updated.");
       startTransition(() => router.refresh());
     } catch (diagnosticError) {
       reportBrowserError("browser.dashboard.shell", diagnosticError);
-      setError("Couldn’t connect. Check your connection and try again.");
+      notify("error", "Couldn’t connect. Check your connection and try again.");
     } finally { setSaving(false); }
   }
 
@@ -66,12 +73,12 @@ export function SettingsWorkspace({ organization, canManage, user, signInMethods
           <header className={styles.sectionHeader}>
             <div><h2 id="workspace-settings-heading">Workspace</h2><p>The shared home for your repositories and reviews.</p></div>
           </header>
-          <form onSubmit={renameWorkspace} aria-busy={busy}>
+          <form onSubmit={renameWorkspace} aria-busy={busy} noValidate>
             <WorkspaceLogo organization={organization} canManage={canManage} uploadsEnabled={logoUploadsEnabled} />
             <div className={styles.row}>
               <div className={styles.fieldDescription}>{canManage ? <label htmlFor="workspace-name">Workspace name</label> : <h3>Workspace name</h3>}<p>How your workspace appears in Inkspect.</p></div>
               <div className={styles.field}>
-                {canManage ? <input className={styles.input} id="workspace-name" name="workspaceName" autoComplete="organization" required minLength={2} maxLength={80} value={name} disabled={busy} aria-invalid={!!error} aria-describedby={error ? "workspace-name-error" : undefined} onChange={event => { setName(event.target.value); setError(""); setSaved(false); }} /> : <p className={styles.value}>{organization.name}</p>}
+                {canManage ? <input className={styles.input} id="workspace-name" name="workspaceName" autoComplete="organization" required minLength={2} maxLength={80} value={name} disabled={busy} aria-invalid={invalidName} onChange={event => { setName(event.target.value); setInvalidName(false); }} /> : <p className={styles.value}>{organization.name}</p>}
                 {!canManage && <p className={styles.hint}>Only workspace owners and admins can change this.</p>}
               </div>
             </div>
@@ -80,10 +87,9 @@ export function SettingsWorkspace({ organization, canManage, user, signInMethods
               <div className={styles.readOnlyValue}><span>{organization.slug}</span><span className={styles.readOnlyLabel}>Read only</span></div>
             </div>
             {canManage && <div className={styles.formFooter}>
-              <div aria-live="polite">{saved ? <p className={styles.saved}><DashboardIcon name="check" />Workspace name updated.</p> : <p className={styles.hint}>Changes apply to everyone in this workspace.</p>}</div>
+              <p className={styles.hint}>Changes apply to everyone in this workspace.</p>
               <button type="submit" className={shared.primaryButton} disabled={busy || name.trim() === organization.name}>{saving ? "Saving…" : "Save changes"}</button>
             </div>}
-            {error && <p id="workspace-name-error" className={shared.error} role="alert">{error}</p>}
           </form>
         </section>
         <AutomaticReviewSettings key={organization.id} organizationId={organization.id} />

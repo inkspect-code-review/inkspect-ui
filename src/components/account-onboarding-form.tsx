@@ -1,5 +1,7 @@
 "use client";
 
+import { Notification, useNotificationMessage } from "./notification-toast";
+
 import { defaultAuthLinks, type AuthLinks } from "./auth-page-shell";
 import { useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
@@ -13,7 +15,7 @@ export function AccountOnboardingForm({ name: initialName, next, links = default
   const [referralSource, setReferralSource] = useState("");
   const [confirmAdult, setConfirmAdult] = useState(false);
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError, errorNotificationKey] = useNotificationMessage("");
   const inFlight = useRef(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -64,7 +66,7 @@ export function AccountOnboardingForm({ name: initialName, next, links = default
         </label>
         <p id="adult-requirement" className={styles.requirement}>You must be an adult to use Inkspect.</p>
       </div>
-      {error && <p className="form-error" role="alert">{error}</p>}
+      <Notification tone="error" message={error} notificationKey={errorNotificationKey} />
       <button className="button primary" type="submit" disabled={pending || !confirmAdult}>{pending ? "Please wait…" : "Continue to Inkspect"}</button>
     </form>
     {links.terms && links.privacy && <p className="terms-copy">By continuing, you agree to the <a href={links.terms}>Terms</a> and acknowledge the <a href={links.privacy}>Privacy Policy</a>.</p>}

@@ -5,7 +5,7 @@ import { reportBrowserError } from "@inkspect/core/lib/diagnostics/client";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { authClient } from "@inkspect/core/lib/auth-client";
 import { authErrorMessage } from "@inkspect/core/lib/auth-errors";
-import { AuthCancellationToast, isAuthCancellation } from "./auth-cancellation-toast";
+import { NotificationToast, type ToastMessage } from "./notification-toast";
 import { ProviderIcon } from "./provider-icon";
 import { loginProviders, linkConfirmationPath, linkSignInPath, type LoginProvider, type LinkSource } from "@inkspect/core/lib/login-providers";
 import { useLoginCooldown } from "./use-login-cooldown";
@@ -15,12 +15,23 @@ export function LoginForm({ callbackError, linkingProvider, linkingFrom, returnT
   const [email, setEmail] = useState("");
   const [sentTo, setSentTo] = useState("");
   const [pending, setPending] = useState<string | null>(null);
-  const [error, setError] = useState(callbackError ? authErrorMessage(callbackError) : "");
+  const [toast, setToast] = useState<ToastMessage | null>(callbackError ? { id: 0, tone: "error", message: authErrorMessage(callbackError) } : null);
+  const toastId = useRef(0);
   const inFlight = useRef(false);
   const cooldown = useLoginCooldown();
-  const [limitedMethod, setLimitedMethod] = useState<LoginMethod | null>(null);
   const callbackURL = linkingProvider ? linkConfirmationPath(linkingProvider, linkingFrom) : returnTo;
   const linkingName = loginProviders.find(({ id }) => id === linkingProvider)?.name;
+
+  function showError(message: string) {
+    setToast({ id: ++toastId.current, tone: "error", message });
+  }
+
+  function limit(method: LoginMethod, response: Response) {
+    cooldown.start(method, response);
+    showError(method === "email"
+      ? "Too many email requests. Wait for the countdown before requesting another link."
+      : "Too many sign-in attempts. Wait for the countdown before trying again.");
+  }
 
   useEffect(() => {
     const restoreFromHistory = (event: PageTransitionEvent) => {
@@ -37,19 +48,18 @@ export function LoginForm({ callbackError, linkingProvider, linkingFrom, returnT
     if (inFlight.current || cooldown.isBlocked("social")) return;
     inFlight.current = true;
     setPending(provider);
-    setError("");
-    setLimitedMethod(null);
+    setToast(null);
     let redirecting = false;
     try {
       const errorCallbackURL = linkingProvider ? linkSignInPath(linkingProvider, linkingFrom) : `/login?link=${provider}`;
       const result = await authClient.signIn.social({ provider, callbackURL, errorCallbackURL, fetchOptions: {
-        onError: ({ response }) => { if (response.status === 429) { cooldown.start("social", response); setLimitedMethod("social"); } },
+        onError: ({ response }) => { if (response.status === 429) limit("social", response); },
       } });
-      if (result.error) { reportBrowserError("browser.login.form", result.error); if (result.error.status !== 429) setError(authErrorMessage(result.error.code, result.error.status)); }
+      if (result.error) { reportBrowserError("browser.login.form", result.error); if (result.error.status !== 429) showError(authErrorMessage(result.error.code, result.error.status)); }
       else if (result.data?.redirect && result.data.url) redirecting = true;
-      else setError(authErrorMessage());
+      else showError(authErrorMessage());
     } catch (diagnosticError) { reportBrowserError("browser.login.form", diagnosticError);
-      setError("Couldn’t connect. Check your connection and try again.");
+      showError("Couldn’t connect. Check your connection and try again.");
     } finally {
       // Keep the loading state until navigation; resetting here causes a flash.
       if (!redirecting) {
@@ -61,17 +71,17 @@ export function LoginForm({ callbackError, linkingProvider, linkingFrom, returnT
 
   async function signInWithPasskey() {
     if (inFlight.current) return;
-    inFlight.current = true; setPending("passkey"); setError("");
+    inFlight.current = true; setPending("passkey"); setToast(null);
     try {
       if (!window.isSecureContext || !window.PublicKeyCredential) throw new Error("Passkeys require a supported browser and a secure connection.");
       const result = await authClient.signIn.passkey();
-      if (result?.error) setError(result.error.message || "Couldn’t sign in with a passkey.");
+      if (result?.error) showError(result.error.message || "Couldn’t sign in with a passkey.");
       else if (result?.data) {
         const challenged = "twoFactorRedirect" in result.data && result.data.twoFactorRedirect;
         window.location.assign(challenged ? `/login/two-factor?next=${encodeURIComponent(callbackURL)}` : callbackURL);
         return;
       }
-    } catch (error) { setError(error instanceof Error ? error.message : "Couldn’t sign in with a passkey."); }
+    } catch (error) { showError(error instanceof Error ? error.message : "Couldn’t sign in with a passkey."); }
     inFlight.current = false; setPending(null);
   }
 
@@ -80,17 +90,16 @@ export function LoginForm({ callbackError, linkingProvider, linkingFrom, returnT
     if (inFlight.current || cooldown.isBlocked("email")) return;
     inFlight.current = true;
     setPending("email");
-    setError("");
-    setLimitedMethod(null);
+    setToast(null);
     try {
       const address = email.trim();
       const result = await authClient.signIn.magicLink({ email: address, callbackURL, newUserCallbackURL: callbackURL, errorCallbackURL: linkingProvider ? linkSignInPath(linkingProvider, linkingFrom) : "/login", fetchOptions: {
-        onError: ({ response }) => { if (response.status === 429) { cooldown.start("email", response); setLimitedMethod("email"); } },
+        onError: ({ response }) => { if (response.status === 429) limit("email", response); },
       } });
-      if (result.error) { reportBrowserError("browser.login.form", result.error); if (result.error.status !== 429) setError(authErrorMessage(result.error.code, result.error.status)); }
-      else setSentTo(address);
+      if (result.error) { reportBrowserError("browser.login.form", result.error); if (result.error.status !== 429) showError(authErrorMessage(result.error.code, result.error.status)); }
+      else { setSentTo(address); setToast({ id: ++toastId.current, tone: "success", message: `We sent a sign-in link to ${address}.` }); }
     } catch (diagnosticError) { reportBrowserError("browser.login.form", diagnosticError);
-      setError("Couldn’t send the link. Check your connection and try again.");
+      showError("Couldn’t send the link. Check your connection and try again.");
     } finally {
       inFlight.current = false;
       setPending(null);
@@ -100,9 +109,10 @@ export function LoginForm({ callbackError, linkingProvider, linkingFrom, returnT
   if (sentTo) return <div className="login-content">
     <div className="status-icon" aria-hidden="true">↗</div>
     <h1>Check your inbox.</h1>
-    <p className="intro-copy" role="status">We sent a sign-in link to <strong>{sentTo}</strong>. Open it to continue to Inkspect.</p>
+    <p className="intro-copy">Open the sign-in link in your inbox to continue to Inkspect.</p>
+    <NotificationToast toast={toast} />
     <p className="delivery-note">The link is valid for 10 minutes. If you don’t see it, check your spam folder.</p>
-    <button className="button secondary" onClick={() => { setSentTo(""); setError(""); }}>Back to sign in</button>
+    <button className="button secondary" onClick={() => { setSentTo(""); setToast(null); }}>Back to sign in</button>
   </div>;
 
   return <div className="login-content">
@@ -113,20 +123,17 @@ export function LoginForm({ callbackError, linkingProvider, linkingFrom, returnT
         <span className="provider-icon-slot" aria-hidden="true">
           {pending === id ? <span className="spinner" /> : <ProviderIcon provider={id} />}
         </span>
-        <span>{`Continue with ${name}`}</span>
+        <span>{`Continue with ${name}`}{cooldown.seconds.social > 0 && ` (${cooldown.seconds.social}s)`}</span>
       </button>)}
       <button className="button secondary" disabled={!!pending} onClick={signInWithPasskey}>{pending === "passkey" ? "Waiting for passkey…" : "Continue with a passkey"}</button>
     </div>
-    {cooldown.seconds.social > 0 && <p className="form-error" role="status">Too many sign-in attempts. Try again in {cooldown.seconds.social} seconds.</p>}
     <div className="divider"><span>or use your email</span></div>
     <form onSubmit={sendLink} aria-busy={pending === "email"}>
       <label htmlFor="email">Email address</label>
       <input id="email" name="email" type="email" autoComplete="email" placeholder="you@company.com" maxLength={254} required value={email} disabled={!!pending} onChange={(event) => setEmail(event.target.value)} />
-      <button className="button secondary email-submit" type="submit" disabled={!!pending || cooldown.seconds.email > 0}>{pending === "email" ? "Sending link…" : "Send me a sign-in link"}</button>
+      <button className="button secondary email-submit" type="submit" disabled={!!pending || cooldown.seconds.email > 0}>{pending === "email" ? "Sending link…" : cooldown.seconds.email > 0 ? `Try again in ${cooldown.seconds.email} seconds` : "Send me a sign-in link"}</button>
     </form>
-    {cooldown.seconds.email > 0 && <p className="form-error" role="status">Too many email requests. Try again in {cooldown.seconds.email} seconds.</p>}
-    {limitedMethod && cooldown.seconds[limitedMethod] === 0 && <p className="delivery-note" role="status">You can try signing in again now.</p>}
-    {error && (isAuthCancellation(error) ? <AuthCancellationToast message={error} onDismiss={() => setError("")} /> : <p className="form-error" role="alert">{error}</p>)}
+    <NotificationToast toast={toast} />
     {linkingProvider && <a className="back-link" href="/login">Cancel and return to sign in</a>}
     {links.terms && links.privacy && <p className="terms-copy">By continuing, you agree to the <a href={links.terms}>Terms</a> and <a href={links.privacy}>Privacy Policy</a>.</p>}
   </div>;

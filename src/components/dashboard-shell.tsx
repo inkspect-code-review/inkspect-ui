@@ -1,4 +1,6 @@
 "use client";
+
+import { Notification, useNotificationMessage } from "./notification-toast";
 import { useDashboardEdition } from "./dashboard-edition";
 import { reportBrowserError } from "@inkspect/core/lib/diagnostics/client";
 
@@ -84,8 +86,8 @@ export function DashboardShell({ panels: { MembersPanel, UsagePanel, FeedbackDia
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
   const [refreshing, startTransition] = useTransition();
-  const [error, setError] = useState("");
-  const [createError, setCreateError] = useState("");
+  const [error, setError, errorNotificationKey] = useNotificationMessage("");
+  const [createError, setCreateError, createErrorNotificationKey] = useNotificationMessage("");
   const [organizationRestricted, setOrganizationRestricted] = useState(!canCreateOrganization);
   const [name, setName] = useState("");
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -192,7 +194,7 @@ export function DashboardShell({ panels: { MembersPanel, UsagePanel, FeedbackDia
       <div ref={workspaceMain} className={`${styles.main} ${onboarding && activeOrganization ? styles.onboardingMain : ""} ${isSplitWorkspace ? styles.repositoriesMain : ""} ${isSettingsWorkspace ? styles.settingsMain : ""}`} aria-busy={busy}>
         <div className={`${styles.pageContent} ${onboarding && activeOrganization ? styles.onboardingContent : ""} ${isSplitWorkspace ? styles.repositoriesContent : ""} ${isSettingsWorkspace ? styles.settingsContent : ""}`}>
         {!isSplitWorkspace && <div className={`${styles.pageHeading} ${current.compactHeading ? styles.compactHeading : ""}`}><div><h1>{onboarding ? "Make yourself at home." : current.name}</h1><p>{onboarding ? "A little setup. A new perspective on your code." : current.description}</p></div>{section === "reviews" && activeOrganization && <Link className={styles.secondaryButton} href="/dashboard?view=repositories"><DashboardIcon name="repositories" />Repositories</Link>}</div>}
-        {error && <p className={styles.error} role="alert">{error}</p>}
+        <Notification tone="error" message={error} notificationKey={errorNotificationKey} />
         {onboarding && activeOrganization ? <WorkspaceOnboarding name={activeOrganization.name} configured={!!github?.configured} error={onboardingError} connectedAccount={github?.connections.map((connection) => connection.accountLogin).join(", ")} /> : !activeOrganization ? <section className={styles.panel}>
           <div className={styles.panelHeader}><span>Getting started</span><span className={styles.muted}>Your organization</span></div>
           <div className={styles.emptyState}><div className={styles.emptyArtwork}><DashboardIcon name="organization" /><span /><DashboardIcon name="reviews" /></div><h2>{organizations.length ? "Choose your organization." : "Good reviews start with shared context."}</h2><p>{organizations.length ? "Select an organization to open its workspace." : "Create an organization to keep your repositories, reviews, and team in one place."}</p>
@@ -213,7 +215,7 @@ export function DashboardShell({ panels: { MembersPanel, UsagePanel, FeedbackDia
       <div className={styles.dialogHeader}><span className={styles.orgAvatar}><DashboardIcon name="organization" /></span><button className={styles.iconButton} onClick={() => dialogRef.current?.close()} disabled={pending === "create"} aria-label="Close"><DashboardIcon name="close" /></button></div>
       <h2 id="create-org-title">{organizationRestricted ? edition.organizationRestriction.title : "Create an organization"}</h2><p>{organizationRestricted ? edition.organizationRestriction.description : "One workspace for your code and the people who review it."}</p>
       {organizationRestricted ? (edition.organizationRestriction.action && <Link className={styles.primaryButton} href={edition.organizationRestriction.action.href} onClick={() => dialogRef.current?.close()}>{edition.organizationRestriction.action.label}<DashboardIcon name="arrow" /></Link>) : <>
-      <form onSubmit={createOrganization}><label htmlFor="organization-name">Organization name</label><input id="organization-name" name="name" autoComplete="organization" autoFocus required minLength={2} maxLength={80} value={name} onChange={(event) => setName(event.target.value)} placeholder="Your team or company" disabled={pending === "create"} />{createError && <p className={styles.error} role="alert">{createError}</p>}<button type="submit" className={styles.primaryButton} disabled={busy}>{pending === "create" ? "Creating…" : "Create organization"}</button></form></>}
+      <form onSubmit={createOrganization}><label htmlFor="organization-name">Organization name</label><input id="organization-name" name="name" autoComplete="organization" autoFocus required minLength={2} maxLength={80} value={name} onChange={(event) => setName(event.target.value)} placeholder="Your team or company" disabled={pending === "create"} /><Notification tone="error" message={createError} notificationKey={createErrorNotificationKey} /><button type="submit" className={styles.primaryButton} disabled={busy}>{pending === "create" ? "Creating…" : "Create organization"}</button></form></>}
     </dialog>
   </div>;
 }

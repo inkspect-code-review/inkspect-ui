@@ -1,4 +1,5 @@
 "use client";
+import { Notification } from "./notification-toast";
 import { reportBrowserError } from "@inkspect/core/lib/diagnostics/client";
 
 import { useEffect, useRef, useState } from "react";
@@ -42,7 +43,7 @@ export function ReviewActivity({ jobId, revision, running, request }: { jobId: s
   const visible = milestones ? rows.filter((row) => !row.event.kind.startsWith("source.operation.")) : rows;
   return <section className={styles.activity} aria-label="Review activity">
     <header className={styles.activityHeader}><div><span className={styles.activityDot} data-running={running} /><h3>Activity</h3><span>{running ? "In progress" : "History"}</span></div><div><button aria-pressed={milestones} onClick={() => setMilestones((v) => !v)}>{milestones ? "Milestones" : "All events"}</button><button aria-pressed={follow} onClick={() => setFollow((v) => !v)}>Follow live</button></div></header>
-    {error && <p className={styles.activityError}>{error} <button onClick={() => refresh.current?.()}>Reconnect</button></p>}
+    <Notification tone="error" message={error} action={{ label: "Reconnect to review activity", onClick: () => refresh.current?.() }} />
     <div className={styles.activityScroll} ref={viewport} onScroll={() => { const box = viewport.current; if (box && box.scrollHeight - box.scrollTop - box.clientHeight > 60 && follow) setFollow(false); }}>
       {!visible.length && <p className={styles.activityEmpty}>{running ? "Waiting for activity from the worker…" : "No activity was recorded for this review."}</p>}
       <ol>{visible.map((row) => <li key={row.sequence} data-failed={row.event.kind.endsWith(".failed")}><time dateTime={row.created_at}>{new Date(row.created_at).toLocaleTimeString([], { hour12: false })}</time><div><span>{activityLabel(row)}</span>{row.event.path && <code title={row.event.path}>{row.event.path}</code>}{row.event.code && <small>{row.event.code}</small>}{row.event.input_tokens !== undefined && <small>Input {row.event.input_tokens.toLocaleString()} · output {(row.event.output_tokens || 0).toLocaleString()} · cached {row.event.cached_input_tokens === undefined ? "unknown" : row.event.cached_input_tokens.toLocaleString()}</small>}</div><small>{row.event.duration_ms !== undefined ? `${(row.event.duration_ms / 1000).toFixed(1)}s` : row.event.output_tokens !== undefined ? `${row.event.output_tokens.toLocaleString()} tokens` : ""}</small></li>)}</ol>

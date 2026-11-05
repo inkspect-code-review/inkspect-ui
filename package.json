@@ -130,6 +130,9 @@
     "./components/notification-toast.module.css": "./src/components/notification-toast.module.css",
     "./components/notification-toast": "./src/components/notification-toast.tsx",
     "./components/notification-toast.tsx": "./src/components/notification-toast.tsx",
+    "./components/confirmation-dialog": "./src/components/confirmation-dialog.tsx",
+    "./components/confirmation-dialog.tsx": "./src/components/confirmation-dialog.tsx",
+    "./components/confirmation-dialog.module.css": "./src/components/confirmation-dialog.module.css",
     "./components/provider-icon": "./src/components/provider-icon.tsx",
     "./components/provider-icon.tsx": "./src/components/provider-icon.tsx",
     "./components/repositories-workspace.module.css": "./src/components/repositories-workspace.module.css",
@@ -227,7 +230,9 @@
     "./self-hosted/workspace-pages.tsx": "./src/self-hosted/workspace-pages.tsx",
     "./styles/dashboard-themes.css": "./src/styles/dashboard-themes.css",
     "./styles/globals.css": "./src/styles/globals.css",
-    "./styles/shadcn.css": "./src/styles/shadcn.css"
+    "./styles/shadcn.css": "./src/styles/shadcn.css",
+    "./components/repository-empty-state": "./src/components/repository-empty-state.tsx",
+    "./components/repository-empty-state.tsx": "./src/components/repository-empty-state.tsx"
   },
   "scripts": {
     "build": "next build --webpack",

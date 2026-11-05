@@ -1,4 +1,8 @@
 "use client";
+
+import { ConfirmationDialog } from "./confirmation-dialog";
+
+import { Notification } from "./notification-toast";
 import { chatProgressLabels, type ChatProgress } from "@inkspect/core/lib/chat-progress";
 import { consumeChatStream } from "@inkspect/core/lib/chat-stream";
 import { productFetch } from "@inkspect/core/lib/api-client";
@@ -207,8 +211,11 @@ export function WorkspaceChat({ scopeKey, panelId, organizationId, organizationN
       {hasMore && <button className={styles.loadMore} type="button" disabled={historyLoading} onClick={loadMore}>Load more</button>}
     </div> : <>
       <div className={styles.scopeBar}><DashboardIcon name="repositories" />{!window.conversationId ? <ChatRepositoryPicker repositories={repositories} value={window.repositoryScope} disabled={busy} onChange={repositoryScope => setWindow({repositoryScope})} /> : <span className={styles.scopeName} title={repositoryName}>{repositoryName}</span>}<span className={styles.visibility}><DashboardIcon name={detail?.conversation.shared ? "share" : "lock"} />{detail?.conversation.shared ? "Team" : "Private"}</span></div>
-      {detail?.conversation && <div className={styles.conversationBar}><span title={detail.conversation.title}>{detail.conversation.title}</span>{detail.conversation.owner && <><button type="button" className={styles.shareButton} disabled={busy} onClick={share}><DashboardIcon name={detail.conversation.shared ? "lock" : "share"} />{detail.conversation.shared ? "Make private" : "Share with team"}</button><button className={styles.iconButton} type="button" disabled={busy} onClick={() => setConfirmDelete(!confirmDelete)} aria-label="Delete conversation"><DashboardIcon name="trash" /></button></>}</div>}
-      {confirmDelete && <div className={styles.confirm} role="alert"><span>Delete this conversation for everyone?</span><button type="button" disabled={busy} onClick={deleteChat}>Delete</button><button type="button" onClick={() => setConfirmDelete(false)}>Cancel</button></div>}
+      {detail?.conversation && <div className={styles.conversationBar}><span title={detail.conversation.title}>{detail.conversation.title}</span>{detail.conversation.owner && <><button type="button" className={styles.shareButton} disabled={busy} onClick={share}><DashboardIcon name={detail.conversation.shared ? "lock" : "share"} />{detail.conversation.shared ? "Make private" : "Share with team"}</button>
+        <ConfirmationDialog open={confirmDelete} onOpenChange={setConfirmDelete} title="Delete this conversation?"
+          description="This conversation will be deleted for everyone. This can’t be undone." confirmLabel="Delete conversation" busy={busy} onConfirm={() => void deleteChat()}
+          trigger={<button className={styles.iconButton} type="button" disabled={busy} aria-label="Delete conversation"><DashboardIcon name="trash" /></button>} />
+      </>}</div>}
       <div className={styles.messages} ref={conversation} aria-busy={loading}>
         {!window.conversationId && <div className={styles.welcome}><div className={styles.welcomeMark}><Image className={styles.mark} src="/brand/inkspect-symbol-white.svg" alt="" width={32} height={40} /></div><h3>Your code, in conversation.</h3><p>Ask across your workspace or focus on one repository.</p><div className={styles.prompts}>{["How are these repositories connected?", "Where is authentication handled?", "Explain the main architecture."].map((prompt) => <button type="button" key={prompt} onClick={() => { setWindow({ draft: prompt }); input.current?.focus(); }}>{prompt}<DashboardIcon name="arrow" /></button>)}</div></div>}
         {loading && !detail && <p className={styles.hint} role="status">Loading conversation…</p>}
@@ -216,10 +223,10 @@ export function WorkspaceChat({ scopeKey, panelId, organizationId, organizationN
         {pending && activity && !streamingText && <article className={styles.message} data-role="assistant"><div className={styles.activity} role="status" aria-live="polite" aria-atomic="true"><span className={styles.activityText}>{chatProgressLabels[activity]}</span></div></article>}
         {streamingText && <article className={styles.message} data-role="assistant" aria-label="AI is responding"><ChatMarkdown content={streamingText} className={styles.markdown} /></article>}
       </div>
-      {notice && <p className={styles.notice} role="status">{notice}</p>}
+      <Notification tone="info" message={notice} />
       {readOnly ? <div className={styles.readOnly}><DashboardIcon name="share" /><span>{loading ? "Loading…" : "Shared conversations are read-only."}</span><button type="button" onClick={newChat}>Start your own</button></div> : <form className={styles.composer} onSubmit={submit}><label className={styles.srOnly} htmlFor={`${panelId}-question`}>Your question</label><textarea id={`${panelId}-question`} ref={input} value={window.draft} disabled={pending} placeholder="Ask about your repositories…" rows={3} onChange={(event) => setWindow({ draft: event.target.value })} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} /><div className={styles.composerFooter}><span>{pending ? (streamingText ? "Responding…" : "Working…") : "Enter to send · Shift + Enter for a new line"}</span><button type="submit" disabled={busy || !window.draft.trim()} aria-label={pending ? "Waiting for reply" : "Send question"} title="Send question"><DashboardIcon name={pending ? "history" : "send"} /></button></div></form>}
     </>}
-    {error && <p className={styles.error} role="alert">{error}</p>}
+    <Notification tone="error" message={error} />
     {!mobile && !window.expanded && resizeDirections.map((direction) => <button key={direction} type="button" className={styles.resizeHandle} data-direction={direction} aria-label={`Resize chat from ${({ n: "top", e: "right", s: "bottom", w: "left", ne: "top right", se: "bottom right", sw: "bottom left", nw: "top left" })[direction]}`} title="Drag to resize · Arrow keys to resize" {...frameHandlers(direction)} />)}
   </section>;
 }

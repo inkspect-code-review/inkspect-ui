@@ -1,4 +1,5 @@
 "use client";
+import { Notification } from "./notification-toast";
 import { reportBrowserError } from "@inkspect/core/lib/diagnostics/client";
 
 import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
@@ -21,18 +22,16 @@ function CopyPromptButton({ value, label = "Copy", ariaLabel, className, onFailu
       try { await navigator.clipboard.writeText(value); setStatus("copied"); onSuccess?.(); }
       catch (error) { reportBrowserError("browser.review.report", error); setStatus("failed"); onFailure(); }
     }}>{status === "copied" ? "Copied" : status === "copying" ? "Copying…" : label}</button>
-    <span className={styles.copyStatus} role="status">{status === "copied" ? "Fix prompt copied to clipboard." : status === "failed" ? "Could not copy to clipboard. Select the prompt text to copy it manually." : ""}</span>
+    <Notification tone={status === "failed" ? "error" : "success"} message={status === "copied" ? "Fix prompt copied to clipboard." : status === "failed" ? "Could not copy to clipboard. The prompt is available below to copy manually." : ""} />
   </>;
 }
 
 function FixPrompt({ value, label = "AI fix prompt" }: { value: string; label?: string }) {
   const details = useRef<HTMLDetailsElement>(null);
   const textarea = useRef<HTMLTextAreaElement>(null);
-  const [failed, setFailed] = useState(false);
   return <div className={styles.prompt}>
-    <details ref={details}><summary className={styles.promptSummary}>{label}</summary><textarea ref={textarea} aria-label={label} readOnly value={value} rows={9} />{failed && <p role="alert">Automatic copying is unavailable. The prompt is selected so you can copy it manually.</p>}</details>
-    <CopyPromptButton value={value} ariaLabel={`Copy ${label.toLowerCase()}`} className={styles.promptCopy} onSuccess={() => setFailed(false)} onFailure={() => {
-      setFailed(true);
+    <details ref={details}><summary className={styles.promptSummary}>{label}</summary><textarea ref={textarea} aria-label={label} readOnly value={value} rows={9} /></details>
+    <CopyPromptButton value={value} ariaLabel={`Copy ${label.toLowerCase()}`} className={styles.promptCopy} onFailure={() => {
       if (details.current) details.current.open = true;
       textarea.current?.focus();
       textarea.current?.select();
@@ -83,7 +82,7 @@ function Findings({ value, fix, organizationId }: { value: ReportResponse; fix?:
   return <section id="review-findings" className={styles.reportSection} aria-labelledby="review-findings-title">
     <div className={styles.sectionHeading}><h3 id="review-findings-title">Findings <span className={styles.findingCount}>{r.findings.length}</span></h3>{r.findings.length > 0 && <CopyPromptButton value={allPrompts} label="Copy fix prompts" ariaLabel="Copy fix prompts for all findings" onFailure={() => setCopyFailed(true)} onSuccess={() => setCopyFailed(false)} />}</div>
     {(value.finding_statuses ? value.finding_statuses.some(info => info.status === "open") : r.findings.length > 0) && fix}
-    {copyFailed && <div className={styles.copyFallback}><p role="alert">Automatic copying is unavailable. Select the combined prompts below to copy them manually.</p><textarea aria-label="All finding fix prompts" readOnly value={allPrompts} rows={6} onFocus={event => event.currentTarget.select()} /></div>}
+    {copyFailed && <div className={styles.copyFallback}><textarea aria-label="All finding fix prompts" readOnly value={allPrompts} rows={6} onFocus={event => event.currentTarget.select()} /></div>}
     {!r.findings.length && <p className={styles.muted}>No findings on the reviewed changes. Check the Verification tab before merging.</p>}
     <div className={styles.findingList}>{r.findings.map((f, index) => <article key={`${f.id}:${index}`} className={styles.finding} data-finding-status={value.finding_statuses?.[index]?.status}>
       <header><span className={styles.severity} data-severity={f.severity}>{f.severity}</span><h4>{f.title}</h4>{f.advisory && <span className={styles.badge}>Advisory</span>}</header>
@@ -121,7 +120,7 @@ export function ReviewReportView({ value, details, fix, organizationId }: { valu
   };
   return <article className={styles.report} aria-label="Review report">
     {r.run.freshness === "stale" && <p className={styles.notice}>The pull request or review context has changed. This report belongs to the recorded snapshot.</p>}
-    {value.freshness_check === "unavailable" && <p className={styles.notice}>Current PR freshness could not be checked.</p>}
+    <Notification tone="error" message={value.freshness_check === "unavailable" ? "Current PR freshness could not be checked." : ""} />
     {(!r.run.coverage_complete || r.run.status !== "completed") && <p className={styles.notice}>Coverage is incomplete. Some areas could not be fully reviewed.</p>}
     <EvidenceNavigation.Provider value={openEvidence}>
     <Tabs.Root value={tab} onValueChange={setTab}>

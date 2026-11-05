@@ -1,5 +1,7 @@
 "use client";
 
+import { Notification } from "./notification-toast";
+
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowUp, ArrowDown, ArrowUpDown, ArrowUpRight, RefreshCw, Search } from "lucide-react";
@@ -46,7 +48,7 @@ export function FindingsPanel({ organizationId, workspaceName, canManage, connec
   const invalidDates = !!dateFrom && !!dateTo && dateFrom > dateTo;
   const hasFilters = repositoryId !== "0" || severity !== "all" || status !== "all" || !!query || !!dateFrom || !!dateTo;
   if (!connected || (catalog.status === "ready" && !catalog.repositories.length)) return <RepositoryConnectionCard section="findings" workspaceName={workspaceName} canManage={canManage} />;
-  if (!catalog.repositories.length) return <p className={styles.empty} role={catalog.status === "error" ? "alert" : "status"}>{catalog.status === "error" ? "Your review repositories couldn’t be loaded. Refresh the page to try again." : "Loading review repositories…"}</p>;
+  if (!catalog.repositories.length) return catalog.status === "error" ? <Notification tone="error" message="Your review repositories couldn’t be loaded. Refresh the page to try again." action={{ label: "Refresh page", onClick: () => window.location.reload() }} /> : <p className={styles.empty} role="status">Loading review repositories…</p>;
   return <div className={styles.workspace}>
     {connected && <div className={styles.filters}>
     <div className={`${styles.filter} ${styles.searchFilter}`}>
@@ -67,13 +69,13 @@ export function FindingsPanel({ organizationId, workspaceName, canManage, connec
       <SearchableSelect id="findings-status" label="Status" value={status} onValueChange={setStatus} options={[{ value: "all", label: "All history" }, { value: "open", label: "Open" }, { value: "resolved", label: "Resolved" }, { value: "not_detected", label: "Not detected in latest review" }, { value: "historical", label: "Earlier reviews" }]} placeholder="All history" searchPlaceholder="Search status…" emptyMessage="No matching status." />
     </div><div className={`${styles.filter} ${styles.dateFilter}`}>
       <label htmlFor="findings-date-from">Review date from</label>
-      <input id="findings-date-from" type="date" value={dateFrom} max={dateTo || undefined} onChange={event => setDateFrom(event.target.value)} aria-invalid={invalidDates} aria-describedby={invalidDates ? "findings-date-error" : undefined} />
+      <input id="findings-date-from" type="date" value={dateFrom} max={dateTo || undefined} onChange={event => setDateFrom(event.target.value)} aria-invalid={invalidDates} />
     </div><div className={`${styles.filter} ${styles.dateFilter}`}>
       <label htmlFor="findings-date-to">Review date to</label>
-      <input id="findings-date-to" type="date" value={dateTo} min={dateFrom || undefined} onChange={event => setDateTo(event.target.value)} aria-invalid={invalidDates} aria-describedby={invalidDates ? "findings-date-error" : undefined} />
+      <input id="findings-date-to" type="date" value={dateTo} min={dateFrom || undefined} onChange={event => setDateTo(event.target.value)} aria-invalid={invalidDates} />
     </div>
     {hasFilters && <div className={styles.filterActions}>
-      {invalidDates && <p id="findings-date-error" role="alert">Start date must be on or before the end date.</p>}
+      <Notification tone="error" message={invalidDates ? "Start date must be on or before the end date." : ""} />
       <button type="button" onClick={() => { setRepositoryId("0"); setSeverity("all"); setStatus("all"); setQuery(""); setSearch(""); setDateFrom(""); setDateTo(""); }}>Clear filters</button>
     </div>}
     </div>}
@@ -130,8 +132,8 @@ function FindingsList({ organizationId, connected, repositoryId, severity, statu
     <div className={styles.toolbar}><div><h2>Findings{data && <span className={styles.count} aria-live="polite">{data.total}</span>}</h2><p>From all completed reviews {repositoryId === "0" ? "across all repositories" : "in this repository"}, {sortDescription}.</p></div>
       <button type="button" disabled={loading} onClick={() => { setData(null); setError(""); setLoading(true); setCursors([null]); setRevision(value => value + 1); }}><RefreshCw size={15} aria-hidden="true" />{loading ? "Loading…" : "Refresh"}</button>
     </div>
-    {error && <p className={styles.error} role="alert">{error}{data ? " Previously loaded findings are shown below." : " Use Refresh to try again."}</p>}
-    {data && (data.unavailableRepositories > 0 || data.unavailableReports > 0) && <p className={styles.notice} role="status">Some findings could not be loaded ({data.unavailableRepositories} repositories, {data.unavailableReports} reports). Showing available findings.</p>}
+    <Notification tone="error" message={error ? `${error}${data ? " Previously loaded findings are shown below." : " Use Refresh to try again."}` : ""} />
+    <Notification tone="info" message={data && (data.unavailableRepositories > 0 || data.unavailableReports > 0) ? `Some findings could not be loaded (${data.unavailableRepositories} repositories, ${data.unavailableReports} reports). Showing available findings.` : ""} />
     {loading && !data && <p className={styles.empty} role="status">Loading findings…</p>}
     {data && findings.length === 0 && <div className={styles.empty} role="status"><h2>{data.unavailableRepositories || data.unavailableReports ? "No findings in the available reports" : filtered ? "No matching findings" : "No findings on this page"}</h2><p>{filtered ? "Try another search, widen the date range, or clear the filters." : "Findings appear here after a review completes. Refresh to load the latest results."}</p><Link href="/dashboard?view=reviews">Open reviews</Link></div>}
     {findings.length > 0 && <div className={styles.tableScroll}><table className={styles.table}>

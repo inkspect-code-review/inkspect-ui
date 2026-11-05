@@ -1,5 +1,7 @@
 "use client";
 
+import { Notification, useNotificationMessage } from "./notification-toast";
+
 import { useState } from "react";
 import Link from "next/link";
 import { productFetch } from "@inkspect/core/lib/api-client";
@@ -10,7 +12,7 @@ import styles from "./finding-status-control.module.css";
 export function FindingStatusControl({ value, organizationId, repositoryId, jobId, ordinal, findingId, title, compact = false }: { value?: FindingStatusInfo; organizationId?: string; repositoryId: number; jobId: string; ordinal: number; findingId: string; title: string; compact?: boolean }) {
   const [updated, setUpdated] = useState<{ original: FindingStatusInfo | undefined; value: FindingStatusInfo } | null>(null);
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError, errorNotificationKey] = useNotificationMessage("");
   const info = updated && updated.original === value ? updated.value : value;
   if (!info) return null;
   const manual = info.source === "manual";
@@ -38,6 +40,6 @@ export function FindingStatusControl({ value, organizationId, repositoryId, jobI
     </>}
     {organizationId && (info.status !== "resolved" || manual) && <button type="button" onClick={() => void save()} disabled={pending} aria-busy={pending} aria-label={`${manual ? "Undo manual resolution for" : "Mark as resolved:"} ${title}`}>{manual ? "Undo manual resolution" : "Mark resolved"}</button>}
     <span className="sr-only" role="status">{pending ? "Saving finding status…" : ""}</span>
-    {error && <span className={styles.error} role="alert">{error}</span>}
+    <Notification tone="error" message={error} notificationKey={errorNotificationKey} />
   </div>;
 }

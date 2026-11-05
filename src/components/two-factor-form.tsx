@@ -1,4 +1,6 @@
 "use client";
+
+import { Notification, useNotificationMessage } from "./notification-toast";
 import { useRef, useState } from "react";
 import { authClient } from "@inkspect/core/lib/auth-client";
 
@@ -6,7 +8,7 @@ export function TwoFactorForm({ next }: { next: string }) {
   const [code, setCode] = useState("");
   const [backup, setBackup] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError, errorNotificationKey] = useNotificationMessage("");
   const lock = useRef(false);
   return <div className="login-content">
     <h1>Verify your sign-in.</h1>
@@ -24,7 +26,7 @@ export function TwoFactorForm({ next }: { next: string }) {
       <input id="verification-code" autoComplete="one-time-code" inputMode={backup ? "text" : "numeric"} pattern={backup ? undefined : "[0-9]{6}"} maxLength={backup ? 32 : 6} required value={code} disabled={busy} onChange={event => setCode(event.target.value)} />
       <button className="button primary email-submit" disabled={busy}>{busy ? "Verifying…" : "Verify and sign in"}</button>
     </form>
-    {error && <p className="form-error" role="alert">{error}</p>}
+    <Notification tone="error" message={error} notificationKey={errorNotificationKey} />
     <button className="button secondary email-submit" disabled={busy} onClick={() => { setBackup(!backup); setCode(""); setError(""); }}>{backup ? "Use authenticator app" : "Use a recovery code"}</button>
     <a className="back-link" href="/login">Restart sign-in</a>
   </div>;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useDashboardEdition } from "./dashboard-edition";
+import { useDashboardEdition, useDashboardWidgets } from "./dashboard-edition";
 import Image from "next/image";
 import Link from "next/link";
 import { BookOpen, Check, ChevronDown, ChevronsUpDown, CircleHelp, LockKeyhole, MessageSquare, Plus, X } from "lucide-react";
@@ -28,6 +28,7 @@ type Props = {
 
 export function AppSidebar({ section, homeHref, organizations, activeOrganization, user, busy, canCreateOrganization, onSelectOrganization, onCreateOrganization, onSignOut, onOpenFeedback }: Props) {
   const edition = useDashboardEdition();
+  const { navigationIcons } = useDashboardWidgets();
   const { navigation, sections: dashboardSections } = edition;
   const { open, isMobile, setOpenMobile } = useSidebar();
   const hasSupport = edition.sections.some(item => item.id === "support");
@@ -77,7 +78,7 @@ export function AppSidebar({ section, homeHref, organizations, activeOrganizatio
           <ul>{group.sections.map((id) => {
             const item = dashboardSections.find((entry) => entry.id === id)!;
             return <li key={id}><Link className={styles.navLink} href={id === "dashboard" ? homeHref : `/dashboard?view=${id}`} aria-label={item.name} title={compact ? item.name : undefined} aria-current={section === id ? "page" : undefined} onClick={closeMobile}>
-              <DashboardIcon name={id} /><span>{item.name}</span>
+              {navigationIcons?.[id] ?? <DashboardIcon name={id} />}<span>{item.name}</span>
             </Link></li>;
           })}</ul>
         </div>)}

@@ -5,28 +5,27 @@ import { useRouter } from "next/navigation";
 import type { DashboardOrganization } from "@inkspect/core/lib/dashboard";
 import { workspaceLogoMaxBytes, workspaceLogoSource, workspaceLogoTypes } from "@inkspect/core/lib/workspace-logo";
 import { WorkspaceAvatar } from "./workspace-avatar";
+import { useNotifications } from "./notification-toast";
 import settings from "./settings.module.css";
 import shared from "./dashboard.module.css";
 import styles from "./workspace-logo.module.css";
 
 export function WorkspaceLogo({ organization, canManage, uploadsEnabled }: { organization: DashboardOrganization; canManage: boolean; uploadsEnabled: boolean }) {
   const router = useRouter();
+  const { notify, clearToast } = useNotifications();
   const input = useRef<HTMLInputElement>(null);
   const pending = useRef(false);
   const [logo, setLogo] = useState(organization.logo);
   const [busy, setBusy] = useState(false);
   const [refreshing, startTransition] = useTransition();
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
   const disabled = busy || refreshing || !uploadsEnabled;
   const hasLogo = !!workspaceLogoSource(organization.id, logo);
 
   async function update(file?: File) {
     if (pending.current || !canManage || disabled) return;
-    setError("");
-    setNotice("");
-    if (file && !workspaceLogoTypes.some(type => type === file.type)) { setError("Choose a PNG, JPEG or WebP image."); return; }
-    if (file && file.size > workspaceLogoMaxBytes) { setError("Choose an image smaller than 2 MB."); return; }
+    clearToast();
+    if (file && !workspaceLogoTypes.some(type => type === file.type)) { notify("error", "Choose a PNG, JPEG or WebP image."); return; }
+    if (file && file.size > workspaceLogoMaxBytes) { notify("error", "Choose an image smaller than 2 MB."); return; }
     pending.current = true;
     setBusy(true);
     try {
@@ -38,9 +37,9 @@ export function WorkspaceLogo({ organization, canManage, uploadsEnabled }: { org
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Couldn’t update the logo. Please try again.");
       setLogo(result.logo);
-      setNotice(file ? "Workspace logo updated." : "Workspace logo removed.");
+      notify("success", file ? "Workspace logo updated." : "Workspace logo removed.");
       startTransition(() => router.refresh());
-    } catch (error) { setError(error instanceof Error ? error.message : "Couldn’t update the logo. Please try again."); }
+    } catch (error) { notify("error", error instanceof Error ? error.message : "Couldn’t update the logo. Please try again."); }
     finally { pending.current = false; setBusy(false); }
   }
 
@@ -56,8 +55,6 @@ export function WorkspaceLogo({ organization, canManage, uploadsEnabled }: { org
         </div>}
       </div>
       <p className={settings.hint}>{!canManage ? "Only workspace owners and admins can change the logo." : !uploadsEnabled ? "Logo uploads are not available yet." : "PNG, JPEG or WebP. Maximum 2 MB."}</p>
-      {error && <p className={styles.error} role="alert">{error}</p>}
-      <div role="status">{notice && <p className={settings.saved}>{notice}</p>}</div>
     </div>
   </div>;
 }

@@ -2,9 +2,10 @@
 
 import { useDashboardEdition } from "./dashboard-edition";
 import Link from "next/link";
+import { Check } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { productFetch } from "@inkspect/core/lib/api-client";
-import { NotificationToast, type ToastMessage } from "./notification-toast";
+import { useNotifications } from "./notification-toast";
 import shared from "./dashboard.module.css";
 import styles from "./byok-settings.module.css";
 import settingsStyles from "./settings.module.css";
@@ -13,11 +14,41 @@ type Settings = { review_provider: "managed"|"byok"; plan: string; eligible: boo
   providers: {id:string;name:string}[]; models: {provider:string;id:string;name:string}[];
   connection: {provider:string;model:string;key_suffix:string;updated_at:string} | null };
 
+type ProviderMode = Settings["review_provider"];
+type ProviderOption = { mode: ProviderMode; label: string; available: boolean };
+
+export function ReviewProviderSelector({ current, options, disabled, connectionLabel, onChange }: {
+  current: ProviderMode;
+  options: ProviderOption[];
+  disabled: boolean;
+  connectionLabel?: string;
+  onChange: (mode: ProviderMode) => void;
+}) {
+  return <>
+    <div className={styles.activeProvider}>
+      <span>Active provider</span>
+      <strong>{options.find(option => option.mode === current)?.label}</strong>
+      {current === "byok" && connectionLabel && <span>{connectionLabel}</span>}
+    </div>
+    <div className={styles.actions} role="group" aria-label="Organization review provider">
+      {options.map(option => {
+        const active = current === option.mode;
+        const unavailable = disabled || !option.available || active;
+        return <button key={option.mode} type="button" className={`${shared.secondaryButton} ${styles.providerOption}`} disabled={unavailable} aria-pressed={active} data-active={active}
+          onClick={() => { if (!unavailable) onChange(option.mode); }}>
+          {option.label}{active && <span className={styles.activeBadge}><Check size={13} aria-hidden="true" />Active</span>}
+        </button>;
+      })}
+    </div>
+  </>;
+}
+
 export function ByokSettings({organizationId}:{organizationId:string}) {
   const { provider: providerPresentation } = useDashboardEdition();
+  const { notify, clearToast } = useNotifications();
   const [settings,setSettings]=useState<Settings|null>(null),[provider,setProvider]=useState("openai"),[model,setModel]=useState(""),[apiKey,setApiKey]=useState("");
-  const [busy,setBusy]=useState(false),[loadError,setLoadError]=useState(""),[toast,setToast]=useState<ToastMessage|null>(null);
-  const pending=useRef(false),toastId=useRef(0);
+  const [busy,setBusy]=useState(false),[loadError,setLoadError]=useState("");
+  const pending=useRef(false);
   const endpoint=`/api/byok?${new URLSearchParams({organizationId})}`;
   const load=useCallback(async (signal?:AbortSignal)=>{
     const response=await productFetch(endpoint,{cache:"no-store",signal});
@@ -31,15 +62,13 @@ export function ByokSettings({organizationId}:{organizationId:string}) {
   },[endpoint]);
   useEffect(()=>{
     const controller=new AbortController();
-    void Promise.resolve().then(()=>load(controller.signal)).catch(()=>{if(!controller.signal.aborted)setLoadError("Could not load provider settings. Try again.");});
+    void Promise.resolve().then(()=>load(controller.signal)).catch(()=>{if(!controller.signal.aborted){setLoadError("Could not load provider settings. Try again.");notify("error","Could not load provider settings. Try again.");}});
     return ()=>controller.abort();
-  },[load]);
-  // Change results are shown as toasts. Each action clears the previous toast, and a new id replaces it.
-  function notify(tone:ToastMessage["tone"],message:string){toastId.current+=1;setToast({id:toastId.current,tone,message});}
+  },[load,notify]);
   async function save(event:FormEvent) {
     event.preventDefault();
     if(pending.current)return;
-    pending.current=true;setBusy(true);setToast(null);
+    pending.current=true;setBusy(true);clearToast();
     const body=JSON.stringify({provider,model,api_key:apiKey});
     setApiKey("");
     try {
@@ -49,13 +78,15 @@ export function ByokSettings({organizationId}:{organizationId:string}) {
     }catch(error){notify("error",error instanceof Error?error.message:"Could not save provider settings.");}
     finally{pending.current=false;setBusy(false);}
   }
-  async function chooseMode(mode:string) {
-    if(pending.current)return;pending.current=true;setBusy(true);setToast(null);
+  async function chooseMode(mode:ProviderMode) {
+    if(pending.current || !settings?.can_manage || settings.review_provider===mode
+      || (mode==="managed" ? !providerPresentation.managedAvailable : !settings.eligible || !settings.connection))return;
+    pending.current=true;setBusy(true);clearToast();
     try{const response=await productFetch(endpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"provider",mode})});const value=await response.json();if(!response.ok)throw new Error(value.error || "Could not update the review provider.");await load();notify("success","Review provider updated for new reviews.");}catch(error){notify("error",error instanceof Error?error.message:"Could not update the review provider.");}finally{pending.current=false;setBusy(false);}
   }
   async function remove() {
     if(pending.current)return;
-    pending.current=true;setBusy(true);setToast(null);setApiKey("");
+    pending.current=true;setBusy(true);clearToast();setApiKey("");
     try{
       const response=await productFetch(endpoint,{method:"DELETE"});
       const value=await response.json();if(!response.ok)throw new Error(value.error || "Could not remove provider key.");
@@ -66,13 +97,21 @@ export function ByokSettings({organizationId}:{organizationId:string}) {
   const header=<header className={settingsStyles.sectionHeader}><div><h2 id="byok-heading">Review provider</h2><p>Choose the provider and model for your workspace’s reviews.</p></div></header>;
   // This section has its own tab, so keep the heading visible while it loads or if loading fails.
   if(!settings)return <section className={settingsStyles.section} aria-labelledby="byok-heading" aria-busy={!loadError}>{header}
-    {loadError?<p className={styles.message} role="alert">{loadError} <button type="button" onClick={()=>void load().catch(()=>setLoadError("Could not load provider settings."))}>Retry</button></p>:<p className={settingsStyles.hint}>Loading provider settings…</p>}
+    {loadError?<button type="button" className={shared.secondaryButton} onClick={()=>{clearToast();void load().catch(()=>notify("error","Could not load provider settings. Try again."));}}>Retry loading provider settings</button>:<p className={settingsStyles.hint}>Loading provider settings…</p>}
   </section>;
   const editable=settings.eligible && settings.can_manage && settings.encryption_ready && !busy;
+  const connection=settings.connection;
+  const connectionLabel=connection ? `${settings.providers.find(item=>item.id===connection.provider)?.name || connection.provider} · ${settings.models.find(item=>item.provider===connection.provider && item.id===connection.model)?.name || connection.model}` : undefined;
   return <section className={settingsStyles.section} aria-labelledby="byok-heading">
     {header}
     <div className={styles.body}>
-      <div className={styles.actions} role="group" aria-label="Organization review provider"><button className={shared.secondaryButton} disabled={busy||!settings.can_manage||!providerPresentation.managedAvailable} aria-pressed={settings.review_provider==="managed"} onClick={()=>void chooseMode("managed")}>{providerPresentation.managedLabel}</button><button className={shared.secondaryButton} disabled={busy||!settings.eligible||!settings.can_manage||!settings.connection} aria-pressed={settings.review_provider==="byok"} onClick={()=>void chooseMode("byok")}>{providerPresentation.byokLabel}</button></div>
+      <ReviewProviderSelector current={settings.review_provider} disabled={busy || !settings.can_manage}
+        options={[
+          {mode:"managed",label:providerPresentation.managedLabel,available:providerPresentation.managedAvailable},
+          {mode:"byok",label:providerPresentation.byokLabel,available:settings.eligible && !!settings.connection},
+        ]}
+        connectionLabel={connectionLabel}
+        onChange={mode=>void chooseMode(mode)} />
       <p className={styles.description}>{providerPresentation.description}</p>
       {settings.connection && <p className={styles.connection}>Saved key ending in <strong>{settings.connection.key_suffix}</strong>. Access is checked when a review starts.</p>}
       {!settings.eligible && <p className={styles.message}>{providerPresentation.unavailable} {providerPresentation.action && <Link href={providerPresentation.action.href}>{providerPresentation.action.label}</Link>}</p>}
@@ -87,6 +126,5 @@ export function ByokSettings({organizationId}:{organizationId:string}) {
         {settings.can_manage && <div className={styles.actions}><button className={shared.primaryButton} type="submit" disabled={!editable || !model || apiKey.length<16}>{busy?"Please wait…":"Save provider"}</button>{settings.connection && <button className={shared.secondaryButton} type="button" disabled={busy} onClick={()=>void remove()}>Remove key</button>}</div>}
       </form>
     </div>
-    <NotificationToast toast={toast} />
   </section>;
 }

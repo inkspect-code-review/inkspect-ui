@@ -1,5 +1,6 @@
 "use client";
-import { createContext, useContext, type ComponentType } from "react";
+import { createContext, useContext, type ComponentType, type ReactNode } from "react";
+import type { DashboardSection } from "@inkspect/core/lib/dashboard";
 import { selfHostedDashboardEdition } from "@inkspect/core/lib/dashboard-edition";
 
 const EditionContext = createContext(selfHostedDashboardEdition);
@@ -9,6 +10,7 @@ export function useDashboardEdition() { return useContext(EditionContext); }
 const WidgetsContext = createContext<{
   ReviewAllowance?: ComponentType<{ organizationId: string }>;
   PublicRepositoryNotice?: ComponentType<{ repositoryId: string }>;
+  navigationIcons?: Partial<Record<DashboardSection, ReactNode>>;
 }>({});
 export const DashboardWidgetsProvider = WidgetsContext.Provider;
 export function useDashboardWidgets() { return useContext(WidgetsContext); }

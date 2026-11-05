@@ -1,5 +1,7 @@
 "use client";
 
+import { Notification } from "./notification-toast";
+
 import { useEffect, useState } from "react";
 import type { ChatSource } from "@inkspect/core/lib/chat-context";
 import { isReviewReference, isKnowledgeReference, type ChatReference, type ChatReviewReference, type ChatKnowledgeReference } from "@inkspect/core/lib/chat-review-evidence";
@@ -51,7 +53,7 @@ function SourcePreview({ source, organizationId, conversationId, messageId }: Sc
   return <div className={styles.preview}>
     <div className={styles.toolbar}><span title={source.revision}>Revision {source.revision.slice(0, 7)}</span><a href={source.url} target="_blank" rel="noopener noreferrer">Open on GitHub ↗</a></div>
     {content === null && !error && <p className={styles.status} role="status">Loading chunk…</p>}
-    {error && <div className={styles.status} role="alert"><p>{error}</p><button type="button" onClick={() => { setContent(null); setError(""); setAttempt(value => value + 1); }}>Try again</button></div>}
+    <Notification tone="error" message={error} notificationKey={attempt} action={{ label: "Retry loading snippet", onClick: () => { setContent(null); setError(""); setAttempt(value => value + 1); } }} />
     {lines && <pre className={styles.code} tabIndex={0} aria-label={`${source.path}, lines ${source.startLine} to ${source.endLine}`}><code>{lines.map((line, index) => <span className={styles.line} key={index}><span className={styles.lineNumber} aria-hidden="true">{source.startLine + index}</span><span>{line || "\u200b"}</span>{index < lines.length - 1 ? "\n" : ""}</span>)}</code></pre>}
   </div>;
 }
@@ -72,5 +74,5 @@ function KnowledgeSource({source,organizationId,conversationId,messageId}:Scope 
   }).catch(error=>{if(!controller.signal.aborted)setError(error.message);});
   return ()=>controller.abort();
  },[open,organizationId,conversationId,messageId,source.id]);
- return <details className={styles.source} onToggle={event=>setOpen(event.currentTarget.open)}><summary><span className={styles.badge}>{source.id}</span><span className={styles.path}>{source.title}<small>Knowledge Center · Lines {source.startLine}–{source.endLine}</small></span><span className={styles.action}>{open?"Hide rule":"Show rule"}</span></summary>{open && <div className={styles.preview}><div className={styles.toolbar}><a href={source.url}>Open document ↗</a></div>{error?<p role="alert">{error}</p>:content===null?<p role="status">Loading document…</p>:<pre className={styles.code} tabIndex={0}>{content}</pre>}</div>}</details>;
+ return <details className={styles.source} onToggle={event=>setOpen(event.currentTarget.open)}><summary><span className={styles.badge}>{source.id}</span><span className={styles.path}>{source.title}<small>Knowledge Center · Lines {source.startLine}–{source.endLine}</small></span><span className={styles.action}>{open?"Hide rule":"Show rule"}</span></summary>{open && <div className={styles.preview}><div className={styles.toolbar}><a href={source.url}>Open document ↗</a></div>{error?<Notification tone="error" message={error} />:content===null?<p role="status">Loading document…</p>:<pre className={styles.code} tabIndex={0}>{content}</pre>}</div>}</details>;
 }

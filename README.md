@@ -16,6 +16,15 @@ Use the main `inkspect` repository to assemble compatible self-hosted releases. 
 
 Source code is licensed under [MIT](LICENSE). Third-party dependencies retain their own licenses.
 
+## Ignored pull request authors
+
+Open **Settings → Workspace → Automatic reviews → Ignored PR authors** to skip
+automation for selected GitHub accounts across the workspace. Owners and admins
+can enter up to 100 usernames, one per line or separated by commas, and save the list.
+Use **Add Dependabot** to insert `dependabot[bot]`; other bots also need their full
+login, such as `renovate[bot]`. Usernames are case-insensitive. An empty list allows
+all authors. Explicit dashboard reviews and fixes remain available.
+
 ## Contributing and community
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup, checks, commit notation and

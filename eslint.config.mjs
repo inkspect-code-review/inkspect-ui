@@ -6,6 +6,12 @@ export default defineConfig([
   ...nextVitals,
   ...nextTs,
   {
+    // These standalone Node fixtures deliberately use the CommonJS module format.
+    files: ["tests/api/fixtures/*.cjs"],
+    languageOptions: { sourceType: "commonjs" },
+    rules: { "@typescript-eslint/no-require-imports": "off" },
+  },
+  {
     files: [
       "src/components/dashboard-shell.tsx", "src/lib/organization-access.ts",
       "src/lib/dashboard-edition.ts", "src/components/dashboard-edition.tsx",

@@ -1,5 +1,7 @@
 "use client";
 
+import { Notification } from "./notification-toast";
+
 import { useState } from "react";
 import Link from "next/link";
 import { productAPIURL } from "@inkspect/core/lib/api-client";
@@ -153,9 +155,9 @@ function GitHubIntegration({ organizationId, github, error, connected, returnTo 
         <button className={shared.primaryButton} disabled={!configured}><DashboardIcon name="plus" />{connections.length ? "Add account or organization" : "Connect GitHub"}</button>
       </form>}
     </div>
-    {error && <p className={`${shared.error} ${styles.message}`} role="alert">{githubErrorMessage(error)}</p>}
-    {!error && connected && <p className={styles.message} role="status"><DashboardIcon name="check" />GitHub connection saved. Your repository list is up to date.</p>}
-    {!configured && <p className={styles.message}>GitHub connections are currently unavailable. Try again later.</p>}
+    <Notification tone="error" message={error ? githubErrorMessage(error) : ""} />
+    <Notification tone="success" message={!error && connected ? "GitHub connection saved. Your repository list is up to date." : ""} />
+    <Notification tone="error" message={!configured ? "GitHub connections are currently unavailable. Try again later." : ""} />
     {!canManage && <p className={styles.message}>A workspace owner or admin can add accounts and update repository access.</p>}
     {connections.length ? <>
       <div className={styles.summary}><span>{connections.length} connected {connections.length === 1 ? "account" : "accounts"}</span><Link href="/dashboard?view=repositories">{repositories.length} {repositories.length === 1 ? "repository" : "repositories"}<DashboardIcon name="arrow" /></Link></div>

@@ -1,4 +1,6 @@
 "use client";
+
+import { Notification } from "./notification-toast";
 import { useEffect, useRef, useState } from "react";
 import type { ChatIndexAction as Action } from "@inkspect/core/lib/chat-actions";
 import type { RepositoryIndex, RepositoryIndexEligibility } from "@inkspect/core/lib/repository-types";
@@ -66,6 +68,6 @@ export function ChatIndexAction({ action, organizationId }: { action: Action; or
     <div className={styles.copy}><strong>{action.repository}</strong><span role="status">{status}</span></div>
     {!ready && !active && <button type="button" onClick={() => void start()} disabled={pending || !detail?.eligibility.allowed}>{pending ? "Starting…" : failed ? "Retry indexing" : "Yes, index now"}</button>}
     {detail && !detail.eligibility.allowed && !ready && !active && <p>{detail.eligibility.reason}</p>}
-    {error && <p role="alert">{error} <button type="button" disabled={pending} onClick={() => setRetry(value => value + 1)}>Check status</button></p>}
+    <Notification tone="error" message={error} notificationKey={retry} action={{ label: "Check indexing status", onClick: () => { if (!pending) setRetry(value => value + 1); } }} />
   </div>;
 }

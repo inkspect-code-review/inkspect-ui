@@ -1,5 +1,7 @@
 "use client";
 
+import { Notification } from "./notification-toast";
+
 import { useEffect, useRef, useState } from "react";
 import { GitCommitHorizontal, ArrowUpRight, LoaderCircle, Check } from "lucide-react";
 import styles from "./reviews.module.css";
@@ -75,7 +77,7 @@ export function ReviewFix({ jobId, pullUrl, request }: { jobId: string; pullUrl:
       <p>{completed ? "Your PR has a new commit. If automatic reviews are enabled, a new review will follow." : "Let Inkspect AI fix these findings and commit to this PR. Automatic reviews pick up the new changes when enabled."}</p>
       <small>{completed ? "Generated changes need verification. Tests were not run by the fix engine." : (state?.billing_mode === "byok" ? edition.fix.byokDescription : edition.fix.managedDescription)}</small>
       {fix?.status === "paused" && !closed && <p role="status">{edition.fix.pausedMessage}</p>}
-      {(error || fix?.error || state?.reason) && <p className={styles.aiFixError} role="status">{error || fix?.error || state?.reason}</p>}
+      <Notification tone={error || fix?.error ? "error" : "info"} message={error || fix?.error || state?.reason} />
     </div>
     <div className={styles.aiFixAction}>
       {completed && !closed && !unverified ? <a href={`${pullUrl}/commits/${fix.commit}`} target="_blank" rel="noreferrer"><Check size={15} />View commit<ArrowUpRight size={14} /></a>

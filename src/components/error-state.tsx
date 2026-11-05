@@ -1,5 +1,6 @@
 "use client";
 
+import { Notification } from "./notification-toast";
 import { useEffect } from "react";
 import { CircleAlert, RotateCcw } from "lucide-react";
 import { reportBrowserError } from "@inkspect/core/lib/diagnostics/client";
@@ -15,7 +16,7 @@ export function ErrorState({ error, retry }: ErrorStateProps) {
       <section className={styles.message} aria-labelledby="page-error-title">
         <span className={styles.icon}><CircleAlert size={24} aria-hidden="true" /></span>
         <h1 id="page-error-title">This page couldn’t load.</h1>
-        <p>Try loading it again, or return to your dashboard to continue.</p>
+        <Notification tone="error" message="This page couldn’t load. Try loading it again, or return to your dashboard to continue." action={{ label: "Try again", onClick: retry }} />
         <div className={styles.actions}>
           <button type="button" onClick={retry}><RotateCcw size={16} aria-hidden="true" />Try again</button>
           <a href="/dashboard">Back to dashboard</a>

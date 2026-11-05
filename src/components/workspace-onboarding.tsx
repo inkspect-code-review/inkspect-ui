@@ -1,3 +1,5 @@
+
+import { Notification } from "./notification-toast";
 import { DashboardIcon } from "./dashboard-icon";
 import styles from "./dashboard.module.css";
 import { githubErrorMessage, type GitHubConnectionError } from "@inkspect/core/lib/github-errors";
@@ -12,7 +14,7 @@ export function WorkspaceOnboarding({ name, configured, error, connectedAccount 
       <li><span className={styles.stepNumber}>03</span><div><h3>Choose your repositories</h3><p>Select the repositories on GitHub, then authorize the connection to return here.</p></div></li>
     </ol>
     <div className={styles.setupActions}>
-      {error && <p className={styles.error} role="alert">{githubErrorMessage(error === true ? "connect" : error)}</p>}
+      <Notification tone="error" message={error ? githubErrorMessage(error === true ? "connect" : error) : ""} />
       {!configured && <p className={styles.muted}>GitHub connection isn’t available yet. You can continue and connect your repositories later.</p>}
       <div className={styles.setupActionButtons}>
         <form action="/api/github/start" method="post"><button className={styles.primaryButton} disabled={!configured}><DashboardIcon name="repositories" />{connectedAccount ? "Update repository access" : "Connect GitHub"}<DashboardIcon name="arrow" /></button></form>

@@ -1,4 +1,6 @@
 "use client";
+
+import { Notification, useNotificationMessage } from "./notification-toast";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { productFetch } from "@inkspect/core/lib/api-client";
 import type { DashboardMember } from "@inkspect/core/lib/dashboard";
@@ -9,7 +11,7 @@ export function MembersPanel({ organizationId, members, canManage }: { organizat
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("member");
-  const [error, setError] = useState("");
+  const [error, setError, errorNotificationKey] = useNotificationMessage("");
   const [link, setLink] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(canManage);
@@ -26,7 +28,7 @@ export function MembersPanel({ organizationId, members, canManage }: { organizat
     }).catch(error => { if (!controller.signal.aborted) setError(error.message); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [canManage, endpoint, revision]);
+  }, [canManage, endpoint, revision, setError]);
   async function act(body: object) {
     if (!canManage || pending.current) return;
     pending.current = true; setBusy(true); setError(""); setLink("");
@@ -45,7 +47,7 @@ export function MembersPanel({ organizationId, members, canManage }: { organizat
   }
   function invite(event: FormEvent) { event.preventDefault(); void act({ action: "invite", email, role }); }
   return <div className={styles.panel} aria-busy={busy}>
-    {error && <p role="alert">{error}</p>}
+    <Notification tone="error" message={error} notificationKey={errorNotificationKey} />
     <section><h2>Organization members</h2><div className={styles.scroll}><table><thead><tr><th>Member</th><th>Role</th></tr></thead><tbody>
       {members.map(member => <tr key={member.id}><td><strong>{member.name || member.email}</strong><span>{member.email}</span></td><td>{member.role}</td></tr>)}
     </tbody></table></div></section>

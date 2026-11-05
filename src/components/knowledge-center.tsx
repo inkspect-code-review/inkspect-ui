@@ -1,4 +1,7 @@
 "use client";
+
+import { Notification, useNotificationMessage } from "./notification-toast";
+import { ConfirmationDialog } from "./confirmation-dialog";
 import { productFetch } from "@inkspect/core/lib/api-client";
 import { reportBrowserError } from "@inkspect/core/lib/diagnostics/client";
 
@@ -15,7 +18,7 @@ export function KnowledgeCenter({ organizationId, canManage }: { organizationId:
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState("");
-  const [saved, setSaved] = useState("");
+  const [saved, setSaved, savedNotificationKey] = useNotificationMessage("");
   const [mode, setMode] = useState<"create" | "read" | "edit">("create");
   const [preview, setPreview] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -23,12 +26,12 @@ export function KnowledgeCenter({ organizationId, canManage }: { organizationId:
   const [content, setContent] = useState("");
   const [filename, setFilename] = useState("");
   const [templateLanguage, setTemplateLanguage] = useState("");
-  const [error, setError] = useState("");
-  const [fileError, setFileError] = useState("");
+  const [error, setError, errorNotificationKey] = useNotificationMessage("");
+  const [fileError, setFileError, fileErrorNotificationKey] = useNotificationMessage("");
   const [pending, setPending] = useState(false);
   const [readingFile, setReadingFile] = useState(false);
   const [readingClipboard, setReadingClipboard] = useState(false);
-  const [pasteHint, setPasteHint] = useState("");
+  const [pasteHint, setPasteHint, pasteHintNotificationKey] = useNotificationMessage("");
   const [detail, setDetail] = useState<KnowledgeDocument | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -89,7 +92,7 @@ export function KnowledgeCenter({ organizationId, canManage }: { organizationId:
     } catch (cause) { reportBrowserError("browser.knowledge.center", cause);
       if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "Couldn’t open this document. Close it and try again.");
     } finally { if (!controller.signal.aborted) setDetailLoading(false); }
-  }, [endpoint]);
+  }, [endpoint, setError, setSaved]);
 
   useEffect(() => {
     const fileReads=fileReadVersion;let active=true;
@@ -217,8 +220,8 @@ export function KnowledgeCenter({ organizationId, canManage }: { organizationId:
         </li>)}
       </ul>
     </details>}
-    {saved && <p className={styles.success} role="status"><DashboardIcon name="check" />{saved}</p>}
-    {listError && <div className={styles.listError}><p className={shared.error} role="alert">{listError}</p><button type="button" className={shared.secondaryButton} onClick={() => reload(documents.length)} disabled={loading}>Try again</button></div>}
+    <Notification tone="success" message={saved} notificationKey={savedNotificationKey} />
+    <Notification tone="error" message={listError} action={{ label: "Retry loading documents", onClick: () => { if (!loading) reload(documents.length); } }} />
     {loading && !documents.length ? <p className={styles.loading} role="status">Loading documents…</p> : !documents.length && !listError ? <div className={shared.emptyState}>
       <div className={shared.emptyArtwork}><DashboardIcon name="knowledge" /></div>
       <h2>Give every review the full picture.</h2>
@@ -250,8 +253,8 @@ export function KnowledgeCenter({ organizationId, canManage }: { organizationId:
               <button type="button" className={shared.secondaryButton} onClick={() => { setPreview(false); fileRef.current?.click(); }} disabled={busy}><DashboardIcon name="upload" />{readingFile ? "Reading file…" : "Upload Markdown"}</button>
               {filename && <span className={styles.filename} role="status"><DashboardIcon name="check" />{filename}</span>}
             </div>
-            {fileError && <p className={styles.error} role="alert">{fileError}</p>}
-            {pasteHint && <p className={styles.pasteHint} role="status">{pasteHint}</p>}
+            <Notification tone="error" message={fileError} notificationKey={fileErrorNotificationKey} />
+            <Notification tone="info" message={pasteHint} notificationKey={pasteHintNotificationKey} />
             <div className={styles.contentLabel}>
               <span id="knowledge-content-label">Content</span>
               <div className={styles.viewSwitch} role="group" aria-label="Editor view">
@@ -262,7 +265,7 @@ export function KnowledgeCenter({ organizationId, canManage }: { organizationId:
             {preview ? <div className={styles.editorPreview} role="region" aria-label="Markdown preview" tabIndex={0}>
               {content.trim() ? <ChatMarkdown content={content} className={styles.markdown} /> : <p className={styles.previewEmpty}>Write or upload some Markdown to see a preview.</p>}
             </div> : <textarea ref={contentRef} id="knowledge-content" aria-labelledby="knowledge-content-label" name="content" value={content} onChange={(event) => { setContent(event.target.value); setError(""); setFileError(""); setPasteHint(""); }} placeholder="Write or paste your coding standards, architecture decisions, and review guidelines here…" required rows={8} disabled={busy} spellCheck={false} />}
-            {error && <p className={styles.error} role="alert">{error}</p>}
+            <Notification tone="error" message={error} notificationKey={errorNotificationKey} />
           </div>
           <div className={styles.dialogFooter}>
             <span>Markdown supported, up to 64 KB</span>
@@ -271,7 +274,7 @@ export function KnowledgeCenter({ organizationId, canManage }: { organizationId:
         </form>
       </> : <>
         {detail && <div className={styles.readerToolbar}>
-          <span>{saved === "Changes saved." ? <span role="status">Changes saved.</span> : `Added ${new Date(detail.createdAt).toLocaleDateString("en-GB", { year: "numeric", month: "short", day: "numeric" })}`}</span>
+          <span>{`Added ${new Date(detail.createdAt).toLocaleDateString("en-GB", { year: "numeric", month: "short", day: "numeric" })}`}</span>
           <div className={styles.viewSwitch} role="group" aria-label="Document view">
             <button type="button" aria-pressed={preview} onClick={() => setPreview(true)}>Preview</button>
             <button type="button" aria-pressed={!preview} onClick={() => setPreview(false)}>Markdown</button>
@@ -281,15 +284,12 @@ export function KnowledgeCenter({ organizationId, canManage }: { organizationId:
           {detailLoading && <p className={styles.loading} role="status">Loading document…</p>}
           {detail && (preview ? <ChatMarkdown content={detail.content} className={styles.markdown} /> : <pre className={styles.documentSource}>{detail.content}</pre>)}
         </div>
-        {error && <p className={styles.error} role="alert">{error}</p>}
+        <Notification tone="error" message={error} notificationKey={errorNotificationKey} />
         {detail && canManage && <div className={styles.readerFooter}>
-          {confirmDelete ? <>
-            <p role="alert">Delete this document from the workspace? This can’t be undone.</p>
-            <div><button type="button" className={shared.secondaryButton} disabled={busy} onClick={() => { setConfirmDelete(false); setError(""); }}>Cancel</button><button type="button" className={styles.deleteButton} disabled={busy} onClick={() => void deleteDocument()}>{pending ? "Deleting…" : "Delete document"}</button></div>
-          </> : <>
-            <button type="button" className={styles.deleteButton} disabled={busy} onClick={() => { setConfirmDelete(true); setError(""); }}><DashboardIcon name="trash" />Delete</button>
-            <button type="button" className={shared.primaryButton} disabled={busy} onClick={startEditing}>Edit document</button>
-          </>}
+          <ConfirmationDialog open={confirmDelete} onOpenChange={open => { setConfirmDelete(open); setError(""); }} title={`Delete “${detail.title}”?`}
+            description="This document will be removed from the workspace. This can’t be undone." confirmLabel="Delete document" busy={busy} onConfirm={() => void deleteDocument()}
+            trigger={<button type="button" className={styles.deleteButton} disabled={busy}><DashboardIcon name="trash" />Delete</button>} />
+          <button type="button" className={shared.primaryButton} disabled={busy} onClick={startEditing}>Edit document</button>
         </div>}
       </>}
     </dialog>

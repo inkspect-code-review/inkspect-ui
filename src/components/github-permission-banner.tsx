@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowUpRight, GitPullRequest, LoaderCircle } from "lucide-react";
+import { Notification } from "./notification-toast";
 import { productFetch } from "@inkspect/core/lib/api-client";
 import styles from "./github-permission-banner.module.css";
 
@@ -12,6 +13,7 @@ export function GitHubPermissionBanner({ organizationId }: { organizationId: str
   const [state, setState] = useState<State | null>(null);
   const [checking, setChecking] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [tone, setTone] = useState<"success" | "info" | "error">("info");
   const controller = useRef<AbortController | null>(null);
   const pending = useRef(false);
   const endpoint = `/api/review-settings?${new URLSearchParams({ organizationId, view: "github-permissions" })}`;
@@ -40,14 +42,17 @@ export function GitHubPermissionBanner({ organizationId }: { organizationId: str
     pending.current = true; setChecking(id); setMessage("");
     try {
       const result = await load(id);
-      if (!controller.current?.signal.aborted) setMessage(result.connections.find(c => c.installation_id === id)?.contents === "write"
-        ? "GitHub access updated. AI fixes are ready." : "Approval is still pending. A GitHub account or organization owner needs to approve the new permissions.");
+      if (!controller.current?.signal.aborted) {
+        const ready = result.connections.find(c => c.installation_id === id)?.contents === "write";
+        setTone(ready ? "success" : "info");
+        setMessage(ready ? "GitHub access updated. AI fixes are ready." : "Approval is still pending. A GitHub account or organization owner needs to approve the new permissions.");
+      }
     } catch (error) {
-      if (!controller.current?.signal.aborted) setMessage(error instanceof Error ? error.message : "Could not check permissions.");
+      if (!controller.current?.signal.aborted) { setTone("error"); setMessage(error instanceof Error ? error.message : "Could not check permissions."); }
     } finally { pending.current = false; if (!controller.current?.signal.aborted) setChecking(null); }
   }
   const needed = state?.connections.filter(c => c.checked_at && !c.unavailable && c.contents !== "write") ?? [];
-  if (!needed.length) return message ? <p className={styles.confirmation} role="status">{message}</p> : null;
+  if (!needed.length) return <Notification tone={tone} message={message} />;
   return <aside className={styles.banner} aria-label="GitHub permission update">
     <GitPullRequest size={20} className={styles.icon} aria-hidden="true" />
     <div className={styles.content}>
@@ -63,7 +68,7 @@ export function GitHubPermissionBanner({ organizationId }: { organizationId: str
           </button>
         </> : <small>Ask a workspace admin and GitHub account owner to approve access.</small>}
       </div>)}</div>
-      {message && <p role="status">{message}</p>}
+      <Notification tone={tone} message={message} />
     </div>
   </aside>;
 }

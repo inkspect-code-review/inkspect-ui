@@ -1,5 +1,7 @@
 "use client";
 
+import { Notification } from "../notification-toast";
+
 import { Fragment, useEffect, useState } from "react";
 import { reportBrowserError } from "@inkspect/core/lib/diagnostics/client";
 import { productFetch } from "@inkspect/core/lib/api-client";
@@ -46,7 +48,7 @@ function GroupDetails({ presentation, group, organizationId, category, days, rev
       <div><dt>Cache read tokens</dt><dd>{number(group.cached_input_tokens)}</dd></div>
       <div><dt>Cache write tokens</dt><dd>{number(group.cache_write_input_tokens ?? null)}</dd></div>
     </dl>
-    {error && <p role="alert" className={styles.error}>{error}</p>}
+    <Notification tone="error" message={error} />
     {loading && <p className={styles.empty}>Loading operations…</p>}
     {history && <div className={styles.tableWrap}><table aria-label="Individual usage operations">
       <thead><tr><th scope="col">Time</th><th scope="col">Input / output tokens</th><th scope="col">{presentation.amountLabel}</th><th scope="col">Details</th></tr></thead>
@@ -97,7 +99,7 @@ export function UsagePanel({ organizationId, members, presentation }: { organiza
         <button onClick={() => setRevision(value => value + 1)} disabled={loading}>Refresh</button>
       </div>
     </div>
-    {error && <p role="alert" className={styles.error}>{error}</p>}
+    <Notification tone="error" message={error} />
     <div className={styles.summary}>
       <div><span>{presentation.totalLabel}</span><strong>{history ? presentation.formatAmount(amount.toString()) : "—"}</strong></div>
       {["embedding", "review", "chat"].map(value => {

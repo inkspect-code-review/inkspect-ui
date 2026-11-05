@@ -1,4 +1,6 @@
 "use client";
+
+import { Notification } from "./notification-toast";
 import Link from "next/link";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { productFetch } from "@inkspect/core/lib/api-client";
@@ -77,7 +79,7 @@ export function DashboardOverviewView({ summary, github, overview, loading, unav
 
   return <div className={styles.overview}>
     {loading ? <div className={styles.loading} role="status" aria-live="polite"><span className={styles.loadingBar} /><span>Loading your reviews…</span></div>
-      : unavailable ? <p className={styles.notice} role="alert">Your saved reviews couldn’t be loaded. Refresh the page to try again.</p>
+      : unavailable ? <Notification tone="error" message="Your saved reviews couldn’t be loaded. Refresh the page to try again." action={{ label: "Refresh page", onClick: () => window.location.reload() }} />
       : overview ? <ReviewMetrics overview={overview} repositoryCount={repositories.length} />
       : <section className={styles.reviewStart} aria-labelledby="start-review-heading">
       <div className={styles.reviewIntro}>
@@ -126,7 +128,7 @@ export function DashboardOverviewView({ summary, github, overview, loading, unav
         </section>
       </aside>
     </div>
-    {overview && overview.unavailable > 0 && <p className={styles.notice} role="note">Reviews from {plural(overview.unavailable, "repository", "repositories")} couldn’t be loaded and aren’t counted here. Refresh the page to try again.</p>}
+    <Notification tone="error" message={overview && overview.unavailable > 0 ? `Reviews from ${plural(overview.unavailable, "repository", "repositories")} couldn’t be loaded and aren’t counted here. Refresh the page to try again.` : ""} action={{ label: "Refresh page", onClick: () => window.location.reload() }} />
   </div>;
 }
 

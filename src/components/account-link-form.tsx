@@ -1,11 +1,13 @@
 "use client";
 
+import { Notification, useNotificationMessage } from "./notification-toast";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@inkspect/core/lib/auth-client";
 import { authErrorMessage } from "@inkspect/core/lib/auth-errors";
 import { linkConfirmationPath, linkSignInPath, loginProviders, type LoginProvider, type LinkSource } from "@inkspect/core/lib/login-providers";
-import { AuthCancellationToast, isAuthCancellation } from "./auth-cancellation-toast";
+import { isAuthCancellation } from "./auth-cancellation-toast";
 import { ProviderIcon } from "./provider-icon";
 
 export function AccountLinkForm({ provider, email, connected, needsReauth, callbackError, from }: {
@@ -16,7 +18,7 @@ export function AccountLinkForm({ provider, email, connected, needsReauth, callb
   const returnHref = from === "settings" ? "/dashboard?view=settings" : "/dashboard";
   const [pending, setPending] = useState(false);
   const [reauth, setReauth] = useState(needsReauth || callbackError === "link_reauth_required");
-  const [error, setError] = useState(callbackError ? authErrorMessage(callbackError) : "");
+  const [error, setError, errorNotificationKey] = useNotificationMessage(callbackError ? authErrorMessage(callbackError) : "");
 
   async function signInAgain() {
     setPending(true);
@@ -67,7 +69,7 @@ export function AccountLinkForm({ provider, email, connected, needsReauth, callb
       {pending ? <span className="spinner" /> : <ProviderIcon provider={provider} />}
       {reauth ? "Sign in again" : `Confirm and connect ${name}`}
     </button>
-    {error && (isAuthCancellation(error) ? <AuthCancellationToast message={error} onDismiss={() => setError("")} /> : <p className="form-error" role="alert">{error}</p>)}
+    <Notification tone={isAuthCancellation(error) ? "info" : "error"} message={error} notificationKey={errorNotificationKey} />
     {!reauth && <button className="button secondary email-submit" disabled={pending} onClick={signInAgain}>Use a different Inkspect account</button>}
     <a className="back-link" href={returnHref}>Cancel</a>
   </div>;
