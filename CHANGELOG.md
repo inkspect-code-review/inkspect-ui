@@ -10,6 +10,8 @@ as appropriate. The package's `0.1.0` version is not a claim of a tagged release
 
 #### Added
 
+- Let workspace owners and admins select which finding severities fail the GitHub review check.
+
 - Manage ignored PR authors in workspace settings, including a shortcut to add Dependabot.
 
 - Allow applications to supply sidebar section icons through dashboard widgets, retaining the default icons when no override is provided.

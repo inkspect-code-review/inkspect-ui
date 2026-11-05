@@ -10,7 +10,7 @@ import { useNotifications } from "./notification-toast";
 export function AutomaticReviewSettings({ organizationId }: { organizationId: string }) {
   const edition = useDashboardEdition();
   const { notify, clearToast } = useNotifications();
-  const [settings, setSettings] = useState<{ automatic: boolean; auto_fix: boolean; ignored_authors: string[]; can_manage: boolean } | null>(null);
+  const [settings, setSettings] = useState<{ automatic: boolean; auto_fix: boolean; ignored_authors: string[]; check_threshold: string; can_manage: boolean } | null>(null);
   const [authors, setAuthors] = useState("");
   const [loadFailed, setLoadFailed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -34,7 +34,7 @@ export function AutomaticReviewSettings({ organizationId }: { organizationId: st
     void Promise.resolve().then(() => load(controller.signal));
     return () => controller.abort();
   }, [load]);
-  async function change(field: "automatic" | "auto_fix" | "ignored_authors", value: boolean | string[]) {
+  async function change(field: "automatic" | "auto_fix" | "ignored_authors" | "check_threshold", value: boolean | string[] | string) {
     if (pending.current || !settings?.can_manage) return;
     pending.current = true; setBusy(true); clearToast();
     try {
@@ -54,6 +54,22 @@ export function AutomaticReviewSettings({ organizationId }: { organizationId: st
         <label className={styles.automaticToggle}><input id="automatic-reviews" type="checkbox" role="switch" checked={settings?.automatic ?? true} disabled={!settings?.can_manage || busy} onChange={event => void change("automatic", event.target.checked)} />{settings ? settings.automatic ? "On" : "Off" : loadFailed ? "Unavailable" : "Loading…"}</label>
         <p className={styles.hint}>{edition.automaticReviewNote}</p>
         {settings && !settings.can_manage && <p className={styles.hint}>Only workspace owners and admins can change this.</p>}
+      </div>
+    </div>
+    <div className={styles.row}>
+      <div className={styles.fieldDescription}>
+        <label htmlFor="check-threshold">GitHub check failure threshold</label>
+        <p id="check-threshold-help">New PR checks fail when a finding reaches this severity or higher.</p>
+      </div>
+      <div className={styles.field}>
+        <select id="check-threshold" className={styles.input} aria-describedby="check-threshold-help"
+          value={settings?.check_threshold ?? "P0"} disabled={!settings?.can_manage || busy}
+          onChange={event => void change("check_threshold", event.target.value)}>
+          <option value="P0">P0 · Critical only</option>
+          <option value="P1">P1 · High and critical</option>
+          <option value="P2">P2 · Medium and above</option>
+          <option value="P3">P3 · All findings</option>
+        </select>
       </div>
     </div>
     <div className={styles.row}>
