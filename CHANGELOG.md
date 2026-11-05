@@ -10,6 +10,8 @@ as appropriate. The package's `0.1.0` version is not a claim of a tagged release
 
 #### Added
 
+- Show the pull request title below the repository and PR number in Recent reviews.
+
 - Support dashboard header announcements and a highlighted toast for celebrations.
 - Show the pull request title in review details and identify a paused review holding up the queue.
 

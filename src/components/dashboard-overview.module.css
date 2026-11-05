@@ -191,6 +191,7 @@
 .recentMark { width: 8px; height: 8px; border-radius: 50%; background: var(--tone); }
 .recentName { display: grid; gap: 4px; min-width: 0; }
 .recentName strong { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.recentTitle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dash-text); font-size: 12px; }
 .recentName small { color: var(--dash-muted); font-size: 11px; }
 .recentFindings { color: var(--dash-muted); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .recentStatus { color: var(--tone); font-size: 12px; font-weight: 600; text-align: right; white-space: nowrap; }

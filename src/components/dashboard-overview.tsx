@@ -1,5 +1,6 @@
 "use client";
 
+import { ReviewPullTitle } from "./review-pull-title";
 import { Notification } from "./notification-toast";
 import Link from "next/link";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
@@ -69,10 +70,10 @@ function useReviewOverview(organizationId: string | undefined) {
 export function DashboardOverview({ summary, github, organizationId }: { summary: DashboardSummary; github?: WorkspaceStatus; organizationId?: string }) {
   const state = useReviewOverview(organizationId);
   const overview = state.status === "ready" && state.overview.totals.reviews > 0 ? state.overview : null;
-  return <DashboardOverviewView summary={summary} github={github} overview={overview} loading={state.status === "loading"} unavailable={state.status === "unavailable"} />;
+  return <DashboardOverviewView organizationId={organizationId} summary={summary} github={github} overview={overview} loading={state.status === "loading"} unavailable={state.status === "unavailable"} />;
 }
 
-export function DashboardOverviewView({ summary, github, overview, loading, unavailable = false }: { summary: DashboardSummary; github?: WorkspaceStatus; overview: ReviewOverview | null; loading: boolean; unavailable?: boolean }) {
+export function DashboardOverviewView({ organizationId, summary, github, overview, loading, unavailable = false }: { organizationId?: string; summary: DashboardSummary; github?: WorkspaceStatus; overview: ReviewOverview | null; loading: boolean; unavailable?: boolean }) {
   const repositories = github?.repositories ?? [];
   const connections = github?.connections ?? [];
   const hasRepositories = repositories.length > 0;
@@ -100,7 +101,7 @@ export function DashboardOverviewView({ summary, github, overview, loading, unav
       <div className={styles.mainColumn}>
         {overview?.latest && <LatestReview latest={overview.latest} />}
         {overview && <ReviewActivity daily={overview.daily} />}
-        {!!overview?.recent.length && <RecentReviews reviews={overview.recent} />}
+        {!!overview?.recent.length && <RecentReviews reviews={overview.recent} organizationId={organizationId} repositories={repositories} />}
         <section className={`${shared.panel} ${styles.repositoryPanel}`} aria-labelledby="connected-repositories-heading">
           <div className={styles.panelHeading}><div><h2 id="connected-repositories-heading">Your repositories <span className={styles.count}>{repositories.length}</span></h2><p>The code connected to this workspace.</p></div><Link className={styles.textLink} href="/dashboard?view=repositories">View all<DashboardIcon name="arrow" /></Link></div>
           {hasRepositories ? <ul className={styles.repositories}>{repositories.slice(0, 6).map((repo) => <li key={repo.id}>
@@ -267,7 +268,7 @@ function SeverityBreakdown({ overview }: { overview: ReviewOverview }) {
   </section>;
 }
 
-function RecentReviews({ reviews }: { reviews: OverviewReview[] }) {
+function RecentReviews({ reviews, organizationId, repositories }: { reviews: OverviewReview[]; organizationId?: string; repositories: WorkspaceStatus["repositories"] }) {
   const status = (review: OverviewReview) => review.status === "completed" ? review.decision ? decisions[review.decision].label : "Completed"
     : review.status === "failed" ? "Didn’t finish" : review.status === "cancelled" ? "Cancelled" : review.status === "paused" ? "Waiting for credit" : "In progress";
   const tone = (review: OverviewReview) => review.status === "completed" ? review.decision ? decisions[review.decision].tone : "neutral"
@@ -277,7 +278,12 @@ function RecentReviews({ reviews }: { reviews: OverviewReview[] }) {
     <ul className={styles.recent}>{reviews.map((review) => <li key={review.id}>
       <Link href={reviewHref(review)} className={styles[`tone_${tone(review)}`]}>
         <span className={styles.recentMark} aria-hidden="true" />
-        <span className={styles.recentName}><strong>{reviewName(review)}</strong><small>{when(review.createdAt)}</small></span>
+        <span className={styles.recentName}>
+          <strong>{reviewName(review)}</strong>
+          <ReviewPullTitle title={review.title} number={review.number} repositoryId={review.repositoryId}
+            organizationId={repositories.some(repo => repo.id === review.repositoryId) ? organizationId : undefined} className={styles.recentTitle} />
+          <small>{when(review.createdAt)}</small>
+        </span>
         <span className={styles.recentFindings}>{review.findings === null ? "" : review.findingStates?.resolved ? `${review.findingStates.resolved} resolved${review.findingStates.notDetected ? ` · ${review.findingStates.notDetected} not detected` : ""}` : review.findingStates?.notDetected ? `${review.findingStates.notDetected} not detected in latest review` : review.findingStates?.historical ? plural(review.findingStates.historical, "earlier finding") : review.findings ? plural(review.findings, "finding") : "No findings"}</span>
         <span className={styles.recentStatus}>{status(review)}</span>
       </Link>
