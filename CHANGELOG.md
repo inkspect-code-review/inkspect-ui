@@ -6,6 +6,12 @@ as appropriate. The package's `0.1.0` version is not a claim of a tagged release
 
 ## Unreleased
 
+### 2026-11-06
+
+#### Changed
+
+- Display chat code sources as compact file tabs with one fixed-height snippet preview, keyboard navigation, and preserved citation, repository, revision and line references.
+
 ### 2026-11-05
 
 #### Added

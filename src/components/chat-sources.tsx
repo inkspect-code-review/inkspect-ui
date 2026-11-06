@@ -2,7 +2,8 @@
 
 import { Notification } from "./notification-toast";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState, type KeyboardEvent } from "react";
+import { FileText } from "lucide-react";
 import type { ChatSource } from "@inkspect/core/lib/chat-context";
 import { isReviewReference, isKnowledgeReference, type ChatReference, type ChatReviewReference, type ChatKnowledgeReference } from "@inkspect/core/lib/chat-review-evidence";
 import { ReviewDiagram } from "./review-report";
@@ -13,17 +14,47 @@ type Citation = Omit<ChatSource, "content">;
 type Scope = { organizationId: string; conversationId: string; messageId: string };
 
 export function ChatSources({ sources, ...scope }: Scope & { sources: ChatReference[] }) {
-  return <ul className={styles.sources} aria-label="Answer sources">{sources.map(source => <li key={`${scope.organizationId}:${scope.conversationId}:${scope.messageId}:${source.id}`}>
-    {isReviewReference(source) ? <ReviewSource source={source} /> : isKnowledgeReference(source) ? <KnowledgeSource source={source} {...scope} /> : <SourceDisclosure source={source} {...scope} />}
-  </li>)}</ul>;
+  const files = sources.filter((source): source is Citation => !isReviewReference(source) && !isKnowledgeReference(source));
+  const references = sources.filter(source => isReviewReference(source) || isKnowledgeReference(source));
+  return <div className={styles.sources} aria-label="Answer sources">
+    {!!files.length && <FileSources key={`${scope.organizationId}:${scope.conversationId}:${scope.messageId}`} sources={files} {...scope} />}
+    {!!references.length && <ul className={styles.references}>{references.map(source => <li key={`${scope.organizationId}:${scope.conversationId}:${scope.messageId}:${source.id}`}>
+      {isReviewReference(source) ? <ReviewSource source={source} /> : isKnowledgeReference(source) ? <KnowledgeSource source={source} {...scope} /> : null}
+    </li>)}</ul>}
+  </div>;
 }
 
-function SourceDisclosure({ source, ...scope }: Scope & { source: Citation }) {
-  const [open, setOpen] = useState(false);
-  return <details className={styles.source} onToggle={event => setOpen(event.currentTarget.open)}>
-    <summary><span className={styles.badge}>{source.id}</span><span className={styles.path}>{source.repository}/{source.path}<small>Lines {source.startLine}–{source.endLine}</small></span><span className={styles.action}>{open ? "Hide chunk" : "Show chunk"}</span></summary>
-    {open && <SourcePreview source={source} {...scope} />}
-  </details>;
+function FileSources({ sources, ...scope }: Scope & { sources: Citation[] }) {
+  const id = useId();
+  const [selectedId, setSelectedId] = useState(sources[0].id);
+  const selected = sources.find(source => source.id === selectedId) ?? sources[0];
+  function navigate(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    let next: number;
+    if (event.key === "ArrowRight") next = (index + 1) % sources.length;
+    else if (event.key === "ArrowLeft") next = (index - 1 + sources.length) % sources.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = sources.length - 1;
+    else return;
+    event.preventDefault();
+    setSelectedId(sources[next].id);
+    event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
+  }
+  return <div className={styles.fileSources}>
+    <div className={styles.tabs} role="tablist" aria-label="Source files">
+      {sources.map((source, index) => {
+        const filename = source.path.split("/").pop() || source.path;
+        const duplicate = sources.some(other => other.id !== source.id && other.path.split("/").pop() === filename);
+        const label = `${source.id}: ${source.repository}/${source.path}, lines ${source.startLine}–${source.endLine}`;
+        return <button key={source.id} type="button" role="tab" id={`${id}-tab-${source.id}`} aria-controls={`${id}-panel`} aria-selected={source.id === selected.id} aria-label={label} title={label} tabIndex={source.id === selected.id ? 0 : -1} className={styles.tab} onClick={() => setSelectedId(source.id)} onKeyDown={event => navigate(event, index)}>
+          <FileText size={14} aria-hidden="true" /><span className={styles.filename}>{filename}</span>{duplicate && <span className={styles.tabReference}>{source.id} · {source.startLine}–{source.endLine}</span>}
+        </button>;
+      })}
+    </div>
+    <div className={styles.filePanel} role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-tab-${selected.id}`} tabIndex={0}>
+      <div className={styles.fileHeader}><FileText size={14} aria-hidden="true" /><span className={styles.filePath} title={`${selected.repository}/${selected.path}`}>{selected.path}<small>{selected.repository}</small></span><span className={styles.fileLocation}><span className={styles.badge}>{selected.id}</span>Lines {selected.startLine}–{selected.endLine}</span></div>
+      <SourcePreview key={`${selected.id}:${selected.repository}:${selected.path}:${selected.revision}:${selected.startLine}:${selected.endLine}`} source={selected} {...scope} />
+    </div>
+  </div>;
 }
 
 function SourcePreview({ source, organizationId, conversationId, messageId }: Scope & { source: Citation }) {
@@ -52,9 +83,12 @@ function SourcePreview({ source, organizationId, conversationId, messageId }: Sc
   const lines = content?.replace(/\r\n/g, "\n").replace(/\n$/, "").split("\n");
   return <div className={styles.preview}>
     <div className={styles.toolbar}><span title={source.revision}>Revision {source.revision.slice(0, 7)}</span><a href={source.url} target="_blank" rel="noopener noreferrer">Open on GitHub ↗</a></div>
-    {content === null && !error && <p className={styles.status} role="status">Loading chunk…</p>}
     <Notification tone="error" message={error} notificationKey={attempt} action={{ label: "Retry loading snippet", onClick: () => { setContent(null); setError(""); setAttempt(value => value + 1); } }} />
-    {lines && <pre className={styles.code} tabIndex={0} aria-label={`${source.path}, lines ${source.startLine} to ${source.endLine}`}><code>{lines.map((line, index) => <span className={styles.line} key={index}><span className={styles.lineNumber} aria-hidden="true">{source.startLine + index}</span><span>{line || "\u200b"}</span>{index < lines.length - 1 ? "\n" : ""}</span>)}</code></pre>}
+    <div className={styles.codeViewport} aria-busy={content === null && !error}>
+      {content === null && !error && <p className={styles.status} role="status">Loading snippet…</p>}
+      {error && <div className={styles.status}><p>Snippet unavailable.</p><button type="button" onClick={() => { setError(""); setAttempt(value => value + 1); }}>Retry</button></div>}
+      {lines && <pre className={styles.code} tabIndex={0} aria-label={`${source.path}, lines ${source.startLine} to ${source.endLine}`}><code>{lines.map((line, index) => <span className={styles.line} key={index}><span className={styles.lineNumber} aria-hidden="true">{source.startLine + index}</span><span>{line || "\u200b"}</span>{index < lines.length - 1 ? "\n" : ""}</span>)}</code></pre>}
+    </div>
   </div>;
 }
 
