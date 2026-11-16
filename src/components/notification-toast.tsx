@@ -75,14 +75,14 @@ function ToastOutlet({ toasts, onDismiss }: { toasts: ToastMessage[]; onDismiss?
     let active = true;
     const synchronize = () => {
       if (!active) return;
-      // Native dialogs are in the browser's top layer. Keeping the outlet in the
-      // active modal also keeps toast actions inside Radix's focus/interaction scope.
-      const dialogs = document.querySelectorAll('dialog[open], [role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]');
+      // Only native dialogs require a top-layer host. Radix content uses transforms,
+      // which would anchor the fixed viewport to the modal instead of the screen.
+      const dialogs = document.querySelectorAll('dialog[open]');
       const current = dialogs.item(dialogs.length - 1) || undefined;
       setContainer(previous => previous === current ? previous : current);
     };
     const observer = new MutationObserver(synchronize);
-    observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["open", "data-state"] });
+    observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["open"] });
     void Promise.resolve().then(synchronize);
     return () => { active = false; observer.disconnect(); };
   }, []);

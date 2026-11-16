@@ -1,5 +1,5 @@
 .viewport { position: fixed; right: max(20px, env(safe-area-inset-right)); bottom: max(20px, env(safe-area-inset-bottom)); z-index: 10000; display: flex; flex-direction: column; gap: 10px; width: min(380px, calc(100vw - 40px)); margin: 0; padding: 0; list-style: none; outline: none; max-height: calc(100dvh - 40px); overflow-y: auto; }
-.toast { display: flex; align-items: flex-start; gap: 12px; padding: 14px 14px 14px 16px; border: 1px solid var(--dash-border, #d8d8dc); border-radius: 10px; background: var(--dash-raised, #fff); color: var(--dash-text, #18181b); box-shadow: 0 8px 30px var(--dash-shadow, #0002); }
+.toast { pointer-events: auto; display: flex; align-items: flex-start; gap: 12px; padding: 14px 14px 14px 16px; border: 1px solid var(--dash-border, #d8d8dc); border-radius: 10px; background: var(--dash-raised, #fff); color: var(--dash-text, #18181b); box-shadow: 0 8px 30px var(--dash-shadow, #0002); }
 .toast[data-tone="error"] { border-color: var(--dash-error-border, #e5a3a3); }
 .toast:focus-visible, .close:focus-visible { outline: 2px solid var(--dash-accent, #635bff); outline-offset: 2px; }
 .icon { flex-shrink: 0; margin-top: 3px; }

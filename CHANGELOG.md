@@ -6,6 +6,12 @@ as appropriate. The package's `0.1.0` version is not a claim of a tagged release
 
 ## Unreleased
 
+### 2026-11-16
+
+#### Fixed
+
+- Keep notifications anchored to the screen when a confirmation or other Radix dialog opens, with clickable toast actions and dismiss buttons.
+
 ### 2026-11-15
 
 #### Added
