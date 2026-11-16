@@ -6,6 +6,12 @@ as appropriate. The package's `0.1.0` version is not a claim of a tagged release
 
 ## Unreleased
 
+### 2026-11-15
+
+#### Added
+
+- Show a Last used badge on the most recently used sign-in method without changing button layout.
+
 ### 2026-11-06
 
 #### Changed

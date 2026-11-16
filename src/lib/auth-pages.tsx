@@ -1,6 +1,6 @@
 import { LoginForm } from "../components/login-form";
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { AccountLinkForm } from "../components/account-link-form";
 import { LINK_CONFIRMATION_MAX_AGE_MS } from "@inkspect/core/lib/account-linking";
 import { TwoFactorForm } from "../components/two-factor-form";
@@ -9,7 +9,7 @@ import type { ComponentType } from "react";
 import { AuthPageShell, defaultAuthLinks, type AuthLinks } from "../components/auth-page-shell";
 import { accountEntryPath, requiresAccountOnboarding } from "@inkspect/core/lib/account-onboarding-config";
 import { onboardingDestination, welcomePath } from "@inkspect/core/lib/account-onboarding";
-import { isLoginProvider, linkConfirmationPath, linkSignInPath, type LoginProvider } from "@inkspect/core/lib/login-providers";
+import { isLoginProvider, lastLoginMethodCookie, parseLoginMethod, linkConfirmationPath, linkSignInPath, type LoginProvider } from "@inkspect/core/lib/login-providers";
 import { isOpenSourceApplicationPath } from "@inkspect/core/lib/sign-in-destinations";
 import { createSessionHelpers } from "@inkspect/core/lib/session";
 import type { Auth } from "@inkspect/core/lib/github";
@@ -28,7 +28,8 @@ async function LoginPage({ searchParams }: {
   const linkingFrom = from === "settings" ? "settings" : undefined;
   const session = await getSession();
   if (session) redirect(linkingProvider ? linkConfirmationPath(linkingProvider, linkingFrom) : !requiresAccountOnboarding(session.user) ? returnTo : welcomePath(returnTo));
-  return <AuthPageShell links={links}><LoginForm links={links} enabledProviders={enabledProviders?.()} returnTo={accountEntryPath(returnTo)} callbackError={typeof error === "string" ? error : undefined} linkingProvider={linkingProvider} linkingFrom={linkingFrom} /></AuthPageShell>;
+  const lastUsedMethod = parseLoginMethod((await cookies()).get(lastLoginMethodCookie)?.value);
+  return <AuthPageShell links={links}><LoginForm lastUsedMethod={lastUsedMethod} links={links} enabledProviders={enabledProviders?.()} returnTo={accountEntryPath(returnTo)} callbackError={typeof error === "string" ? error : undefined} linkingProvider={linkingProvider} linkingFrom={linkingFrom} /></AuthPageShell>;
 }
 
 async function AccountLinkPage({ searchParams }: {

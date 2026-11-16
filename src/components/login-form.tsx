@@ -7,11 +7,11 @@ import { authClient } from "@inkspect/core/lib/auth-client";
 import { authErrorMessage } from "@inkspect/core/lib/auth-errors";
 import { NotificationToast, type ToastMessage } from "./notification-toast";
 import { ProviderIcon } from "./provider-icon";
-import { loginProviders, linkConfirmationPath, linkSignInPath, type LoginProvider, type LinkSource } from "@inkspect/core/lib/login-providers";
+import { loginProviders, linkConfirmationPath, linkSignInPath, type LoginProvider, type LinkSource, type RememberedLoginMethod } from "@inkspect/core/lib/login-providers";
 import { useLoginCooldown } from "./use-login-cooldown";
 import type { LoginMethod } from "@inkspect/core/lib/auth-cooldown";
 
-export function LoginForm({ callbackError, linkingProvider, linkingFrom, returnTo = "/dashboard", links = defaultAuthLinks, enabledProviders }: { links?: AuthLinks; enabledProviders?: readonly LoginProvider[]; returnTo?: string; callbackError?: string; linkingProvider?: LoginProvider; linkingFrom?: LinkSource }) {
+export function LoginForm({ callbackError, linkingProvider, linkingFrom, returnTo = "/dashboard", links = defaultAuthLinks, enabledProviders, lastUsedMethod }: { lastUsedMethod?: RememberedLoginMethod; links?: AuthLinks; enabledProviders?: readonly LoginProvider[]; returnTo?: string; callbackError?: string; linkingProvider?: LoginProvider; linkingFrom?: LinkSource }) {
   const [email, setEmail] = useState("");
   const [sentTo, setSentTo] = useState("");
   const [pending, setPending] = useState<string | null>(null);
@@ -119,17 +119,18 @@ export function LoginForm({ callbackError, linkingProvider, linkingFrom, returnT
     <h1>{linkingProvider ? "Confirm your account." : "Welcome to Inkspect."}</h1>
     <p className="intro-copy">{linkingProvider ? `Sign in with your existing method to connect ${linkingName}. Your workspace will stay with the same account.` : "Sign in or create your Inkspect account."}</p>
     <div className="provider-list" aria-label="Sign-in methods">
-      {loginProviders.filter(({ id }) => id !== linkingProvider && (!enabledProviders || enabledProviders.includes(id))).map(({ id, name }) => <button key={id} className={`button ${id === "github" ? "primary" : "secondary"}`} disabled={!!pending || cooldown.seconds.social > 0} aria-busy={pending === id} aria-label={pending === id ? `Connecting to ${name}` : undefined} onClick={() => signIn(id)}>
+      {loginProviders.filter(({ id }) => id !== linkingProvider && (!enabledProviders || enabledProviders.includes(id))).map(({ id, name }) => <button key={id} className={`button login-method ${id === "github" ? "primary" : "secondary"}`} disabled={!!pending || cooldown.seconds.social > 0} aria-busy={pending === id} aria-label={pending === id ? `Connecting to ${name}` : undefined} onClick={() => signIn(id)}>
         <span className="provider-icon-slot" aria-hidden="true">
           {pending === id ? <span className="spinner" /> : <ProviderIcon provider={id} />}
         </span>
         <span>{`Continue with ${name}`}{cooldown.seconds.social > 0 && ` (${cooldown.seconds.social}s)`}</span>
+        {lastUsedMethod === id && <span className="last-used-badge">Last used</span>}
       </button>)}
-      <button className="button secondary" disabled={!!pending} onClick={signInWithPasskey}>{pending === "passkey" ? "Waiting for passkey…" : "Continue with a passkey"}</button>
+      <button className="button secondary login-method" disabled={!!pending} onClick={signInWithPasskey}>{pending === "passkey" ? "Waiting for passkey…" : "Continue with a passkey"}{lastUsedMethod === "passkey" && <span className="last-used-badge">Last used</span>}</button>
     </div>
     <div className="divider"><span>or use your email</span></div>
     <form onSubmit={sendLink} aria-busy={pending === "email"}>
-      <label htmlFor="email">Email address</label>
+      <label htmlFor="email" className="email-label">Email address{lastUsedMethod === "email" && <span className="last-used-badge">Last used</span>}</label>
       <input id="email" name="email" type="email" autoComplete="email" placeholder="you@company.com" maxLength={254} required value={email} disabled={!!pending} onChange={(event) => setEmail(event.target.value)} />
       <button className="button secondary email-submit" type="submit" disabled={!!pending || cooldown.seconds.email > 0}>{pending === "email" ? "Sending link…" : cooldown.seconds.email > 0 ? `Try again in ${cooldown.seconds.email} seconds` : "Send me a sign-in link"}</button>
     </form>
