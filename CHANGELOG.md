@@ -10,6 +10,7 @@ as appropriate. The package's `0.1.0` version is not a claim of a tagged release
 
 #### Changed
 
+- Upgrade Next.js and eslint-config-next to 16.4.6.
 - Mark review history entries with open finding counts and severity-colored indicators, and keep a compact AI fix banner above the report tabs.
 - Show score improvement advice immediately with a one-click copy action, without nested disclosures or a separate prompt preview.
 - Separate review-provider selection from activation, show saved connections with explicit edit and remove actions, and add searchable provider/model pickers.
