@@ -1,6 +1,7 @@
 "use client";
 
 import { Notification, useNotificationMessage } from "./notification-toast";
+import { ConfirmationDialog } from "./confirmation-dialog";
 
 import { defaultAuthLinks, type AuthLinks } from "./auth-page-shell";
 import { useRef, useState, type FormEvent } from "react";
@@ -15,6 +16,7 @@ export function AccountOnboardingForm({ name: initialName, next, links = default
   const [referralSource, setReferralSource] = useState("");
   const [confirmAdult, setConfirmAdult] = useState(false);
   const [pending, setPending] = useState(false);
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
   const [error, setError, errorNotificationKey] = useNotificationMessage("");
   const inFlight = useRef(false);
 
@@ -70,6 +72,8 @@ export function AccountOnboardingForm({ name: initialName, next, links = default
       <button className="button primary" type="submit" disabled={pending || !confirmAdult}>{pending ? "Please wait…" : "Continue to Inkspect"}</button>
     </form>
     {links.terms && links.privacy && <p className="terms-copy">By continuing, you agree to the <a href={links.terms}>Terms</a> and acknowledge the <a href={links.privacy}>Privacy Policy</a>.</p>}
-    <button type="button" className={styles.signOut} disabled={pending} onClick={signOut}>Sign out</button>
+    <ConfirmationDialog open={confirmSignOut} onOpenChange={setConfirmSignOut} title="Sign out?"
+      description="Are you sure you want to sign out of your account?" confirmLabel="Sign out" busy={pending} onConfirm={signOut}
+      trigger={<button type="button" className={styles.signOut} disabled={pending}>Sign out</button>} />
   </div>;
 }

@@ -1,10 +1,10 @@
 "use client";
 
-import { useRef, useState, type ReactElement, type ReactNode } from "react";
+import { useRef, useState, type ReactElement, type ReactNode, type RefObject } from "react";
 import { AlertDialog } from "radix-ui";
 import styles from "./confirmation-dialog.module.css";
 
-export function ConfirmationDialog({ open, onOpenChange, title, description, confirmLabel, busy = false, onConfirm, trigger }: {
+export function ConfirmationDialog({ open, onOpenChange, title, description, confirmLabel, busy = false, onConfirm, trigger, restoreFocusRef }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
@@ -12,7 +12,8 @@ export function ConfirmationDialog({ open, onOpenChange, title, description, con
   confirmLabel: string;
   busy?: boolean;
   onConfirm: () => void;
-  trigger: ReactElement;
+  trigger?: ReactElement;
+  restoreFocusRef?: RefObject<HTMLElement | null>;
 }) {
   const [container, setContainer] = useState<HTMLElement | undefined>();
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -27,13 +28,13 @@ export function ConfirmationDialog({ open, onOpenChange, title, description, con
     }
     onOpenChange(next);
   }}>
-    <AlertDialog.Trigger asChild ref={triggerRef}>{trigger}</AlertDialog.Trigger>
+    {trigger && <AlertDialog.Trigger asChild ref={triggerRef}>{trigger}</AlertDialog.Trigger>}
     <AlertDialog.Portal container={container}>
       <AlertDialog.Overlay className={styles.overlay} />
       <AlertDialog.Content className={styles.dialog} aria-busy={busy}
         onEscapeKeyDown={event => { event.preventDefault(); if (!busy) onOpenChange(false); }}
         onCloseAutoFocus={event => {
-          const target = returnFocus.current;
+          const target = restoreFocusRef?.current ?? returnFocus.current;
           if (!target?.isConnected) return;
           const focus = target.matches(":disabled") ? target.closest<HTMLElement>("[tabindex]") : target;
           if (focus) { event.preventDefault(); focus.focus({ preventScroll: true }); }

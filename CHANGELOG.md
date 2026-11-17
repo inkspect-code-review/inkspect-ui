@@ -6,6 +6,21 @@ as appropriate. The package's `0.1.0` version is not a claim of a tagged release
 
 ## Unreleased
 
+### 2026-11-17
+
+#### Changed
+
+- Mark review history entries with open finding counts and severity-colored indicators, and keep a compact AI fix banner above the report tabs.
+- Show score improvement advice immediately with a one-click copy action, without nested disclosures or a separate prompt preview.
+- Separate review-provider selection from activation, show saved connections with explicit edit and remove actions, and add searchable provider/model pickers.
+
+#### Added
+
+- Allow applications to provide an About dialog as the first account-menu action, separated from account settings, in place of the sidebar version label.
+
+- Show per-fix file approval in the existing confirmation dialog and allow explicit retries of eligible failed fixes.
+- Ask for confirmation before signing out from the account menu or account onboarding.
+
 ### 2026-11-16
 
 #### Fixed

@@ -24,9 +24,10 @@ type Props = {
   onCreateOrganization: () => void;
   onSignOut: () => void;
   onOpenFeedback?: () => void;
+  onOpenAbout?: () => void;
 };
 
-export function AppSidebar({ section, homeHref, organizations, activeOrganization, user, busy, canCreateOrganization, onSelectOrganization, onCreateOrganization, onSignOut, onOpenFeedback }: Props) {
+export function AppSidebar({ section, homeHref, organizations, activeOrganization, user, busy, canCreateOrganization, onSelectOrganization, onCreateOrganization, onSignOut, onOpenFeedback, onOpenAbout }: Props) {
   const edition = useDashboardEdition();
   const { navigationIcons } = useDashboardWidgets();
   const { navigation, sections: dashboardSections } = edition;
@@ -100,8 +101,8 @@ export function AppSidebar({ section, homeHref, organizations, activeOrganizatio
         {hasSupport && <Link className={styles.navLink} href="/dashboard?view=support" aria-label="Support" title={compact ? "Support" : undefined} aria-current={section === "support" ? "page" : undefined} onClick={closeMobile}><DashboardIcon name="support" /><span>Support</span></Link>}
         <a className={styles.navLink} href="https://inkspect.si/docs" target="_blank" rel="noopener noreferrer" aria-label="Documentation" title={compact ? "Documentation" : undefined}><BookOpen size={18} /><span>Documentation</span></a>
         </>}
-        <p className={styles.version} title="UI version">UI {process.env.NEXT_PUBLIC_UI_VERSION === "dev" ? "dev" : `v${process.env.NEXT_PUBLIC_UI_VERSION}`}</p>
-        <div className={styles.account}><NavUser user={user} busy={busy} onSignOut={onSignOut} onNavigate={closeMobile} /></div>
+        {!onOpenAbout && <p className={styles.version} title="UI version">UI {process.env.NEXT_PUBLIC_UI_VERSION === "dev" ? "dev" : `v${process.env.NEXT_PUBLIC_UI_VERSION}`}</p>}
+        <div className={styles.account}><NavUser user={user} busy={busy} onSignOut={onSignOut} onNavigate={closeMobile} onOpenAbout={onOpenAbout} /></div>
       </div>
     </div>
   </Sidebar>;

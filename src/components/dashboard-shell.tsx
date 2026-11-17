@@ -41,6 +41,7 @@ export type DashboardExtensionProps = {
   supportContext: DashboardShellProps["supportContext"]; turnstileSiteKey?: string;
 };
 export type DashboardPanels = {
+  AboutDialog?: ComponentType<{ open: boolean; onOpenChange: (open: boolean) => void }>;
   FeedbackDialog?: ComponentType<{ open: boolean; onOpenChange: (open: boolean) => void; organization: DashboardOrganization | null; pageName: string }>;
   UsagePanel: ComponentType<{ organizationId: string; members: DashboardMember[] }>;
   MembersPanel: ComponentType<{ organizationId: string; members: DashboardMember[]; canManage: boolean }>;
@@ -66,7 +67,7 @@ export type DashboardShellProps = {
   user: { id: string; name: string; email: string };
 };
 
-export function DashboardShell({ headerAnnouncement, panels: { MembersPanel, UsagePanel, FeedbackDialog, extensions }, canCreateOrganization, section, supportContext, turnstileSiteKey, organizations, activeOrganization, members, user, github, summary, onboarding = false, onboardingError = false, integrationError, integrationConnected = false, signInMethods, logoUploadsEnabled = false }: DashboardShellProps & { panels: DashboardPanels; headerAnnouncement?: ReactNode }) {
+export function DashboardShell({ headerAnnouncement, panels: { MembersPanel, UsagePanel, FeedbackDialog, AboutDialog, extensions }, canCreateOrganization, section, supportContext, turnstileSiteKey, organizations, activeOrganization, members, user, github, summary, onboarding = false, onboardingError = false, integrationError, integrationConnected = false, signInMethods, logoUploadsEnabled = false }: DashboardShellProps & { panels: DashboardPanels; headerAnnouncement?: ReactNode }) {
   const edition = useDashboardEdition();
   const ExtensionPanel = extensions?.[section];
   const workspaceMain = useRef<HTMLDivElement>(null);
@@ -84,6 +85,7 @@ export function DashboardShell({ headerAnnouncement, panels: { MembersPanel, Usa
   const chatScopeKey = JSON.stringify([user.id, activeOrganization?.id]);
   const chatPanelId = `workspace-chat-${activeOrganization?.id ?? "none"}`;
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
   const [refreshing, startTransition] = useTransition();
   const [error, setError, errorNotificationKey] = useNotificationMessage("");
@@ -178,7 +180,7 @@ export function DashboardShell({ headerAnnouncement, panels: { MembersPanel, Usa
 
   return <div className={styles.shell}>
     <AppSidebar section={section} homeHref={homeHref} organizations={organizations} activeOrganization={activeOrganization}
-      user={user} busy={busy} canCreateOrganization={canCreateOrganization} onSelectOrganization={selectOrganization} onCreateOrganization={openCreate} onSignOut={signOut} onOpenFeedback={FeedbackDialog ? () => setFeedbackOpen(true) : undefined} />
+      user={user} busy={busy} canCreateOrganization={canCreateOrganization} onSelectOrganization={selectOrganization} onCreateOrganization={openCreate} onSignOut={signOut} onOpenFeedback={FeedbackDialog ? () => setFeedbackOpen(true) : undefined} onOpenAbout={AboutDialog ? () => setAboutOpen(true) : undefined} />
     <SidebarInset id="main" className={styles.contentContainer}>
       <header className={styles.containerHeader}>
         <SidebarTrigger aria-label={isMobile ? (openMobile ? "Close navigation" : "Open navigation") : (open ? "Collapse sidebar" : "Expand sidebar")} aria-expanded={isMobile ? openMobile : open} />
@@ -211,6 +213,7 @@ export function DashboardShell({ headerAnnouncement, panels: { MembersPanel, Usa
         </div>
       </div>
     </SidebarInset>
+    {AboutDialog && <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />}
     {FeedbackDialog && <FeedbackDialog key={activeOrganization?.id ?? "no-workspace"} open={feedbackOpen} onOpenChange={setFeedbackOpen} organization={activeOrganization} pageName={current.name} />}
     <dialog ref={dialogRef} className={styles.dialog} aria-labelledby="create-org-title" onCancel={(event) => { if (pending === "create") event.preventDefault(); }}>
       <div className={styles.dialogHeader}><span className={styles.orgAvatar}><DashboardIcon name="organization" /></span><button className={styles.iconButton} onClick={() => dialogRef.current?.close()} disabled={pending === "create"} aria-label="Close"><DashboardIcon name="close" /></button></div>

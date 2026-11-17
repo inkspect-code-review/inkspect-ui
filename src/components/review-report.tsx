@@ -9,7 +9,7 @@ import { allFindingFixPrompts, findingFixPrompt } from "@inkspect/core/lib/revie
 import styles from "./reviews.module.css";
 import { FindingStatusControl } from "./finding-status-control";
 
-function CopyPromptButton({ value, label = "Copy", ariaLabel, className, onFailure, onSuccess }: { value: string; label?: string; ariaLabel: string; className?: string; onFailure: () => void; onSuccess?: () => void }) {
+function CopyPromptButton({ value, label = "Copy", ariaLabel, className, successMessage = "Fix prompt copied to clipboard.", onFailure, onSuccess }: { value: string; label?: string; ariaLabel: string; className?: string; successMessage?: string; onFailure: () => void; onSuccess?: () => void }) {
   const [status, setStatus] = useState<"idle" | "copying" | "copied" | "failed">("idle");
   useEffect(() => {
     if (status !== "copied") return;
@@ -22,7 +22,7 @@ function CopyPromptButton({ value, label = "Copy", ariaLabel, className, onFailu
       try { await navigator.clipboard.writeText(value); setStatus("copied"); onSuccess?.(); }
       catch (error) { reportBrowserError("browser.review.report", error); setStatus("failed"); onFailure(); }
     }}>{status === "copied" ? "Copied" : status === "copying" ? "Copying…" : label}</button>
-    <Notification tone={status === "failed" ? "error" : "success"} message={status === "copied" ? "Fix prompt copied to clipboard." : status === "failed" ? "Could not copy to clipboard. The prompt is available below to copy manually." : ""} />
+    <Notification tone={status === "failed" ? "error" : "success"} message={status === "copied" ? successMessage : status === "failed" ? "Could not copy to clipboard. The prompt is available below to copy manually." : ""} />
   </>;
 }
 
@@ -67,21 +67,35 @@ const decisions = {
 const alignmentLabels: Record<string, string> = { aligned: "Aligned", partial: "Partially aligned", partially_aligned: "Partially aligned", diverging: "Diverging from stated intent", misaligned: "Not aligned", unclear: "Unclear" };
 
 function ScoreCard({ label, value }: { label: string; value: ReviewScore }) {
+  const [copyFailed, setCopyFailed] = useState(false);
+  const textarea = useRef<HTMLTextAreaElement>(null);
+  const prompt = `Improve ${label.toLowerCase()} to a 5/5 standard.\n\nContext: ${value.rationale || ""}\n\nTask: ${value.to_improve}`;
+  useEffect(() => {
+    if (!copyFailed) return;
+    textarea.current?.focus();
+    textarea.current?.select();
+  }, [copyFailed]);
   return <section className={styles.scoreCard} data-tone={value.score >= 4 ? "success" : value.score >= 3 ? "warning" : "danger"} aria-label={label}>
     <header><h3>{label}</h3><span><strong>{value.score}</strong> / 5</span></header>
     <meter min={0} max={5} value={value.score} aria-label={`${label}: ${value.score} out of 5`} />
     {value.rationale && <p>{value.rationale}</p>}
-    {value.to_improve && <details className={styles.scoreImprovement}><summary>How to improve</summary><p>{value.to_improve}</p><FixPrompt label="Copy improvement prompt" value={`Improve ${label.toLowerCase()} to a 5/5 standard.\n\nContext: ${value.rationale || ""}\n\nTask: ${value.to_improve}`} /></details>}
+    {value.to_improve && <div className={styles.scoreImprovement}>
+      <div className={styles.improvementHeading}>
+        <h4>How to improve</h4>
+        <CopyPromptButton value={prompt} label="Copy prompt" ariaLabel={`Copy ${label.toLowerCase()} improvement prompt`} className={styles.improvementCopy} successMessage="Improvement prompt copied to clipboard." onFailure={() => setCopyFailed(true)} onSuccess={() => setCopyFailed(false)} />
+      </div>
+      <p>{value.to_improve}</p>
+      {copyFailed && <div className={styles.copyFallback}><textarea ref={textarea} aria-label={`${label} improvement prompt`} readOnly value={prompt} rows={6} onFocus={event => event.currentTarget.select()} /></div>}
+    </div>}
   </section>;
 }
 
-function Findings({ value, fix, organizationId }: { value: ReportResponse; fix?: ReactNode; organizationId?: string }) {
+function Findings({ value, organizationId }: { value: ReportResponse; organizationId?: string }) {
   const r = value.report;
   const allPrompts = allFindingFixPrompts(value);
   const [copyFailed, setCopyFailed] = useState(false);
   return <section id="review-findings" className={styles.reportSection} aria-labelledby="review-findings-title">
     <div className={styles.sectionHeading}><h3 id="review-findings-title">Findings <span className={styles.findingCount}>{r.findings.length}</span></h3>{r.findings.length > 0 && <CopyPromptButton value={allPrompts} label="Copy fix prompts" ariaLabel="Copy fix prompts for all findings" onFailure={() => setCopyFailed(true)} onSuccess={() => setCopyFailed(false)} />}</div>
-    {(value.finding_statuses ? value.finding_statuses.some(info => info.status === "open") : r.findings.length > 0) && fix}
     {copyFailed && <div className={styles.copyFallback}><textarea aria-label="All finding fix prompts" readOnly value={allPrompts} rows={6} onFocus={event => event.currentTarget.select()} /></div>}
     {!r.findings.length && <p className={styles.muted}>No findings on the reviewed changes. Check the Verification tab before merging.</p>}
     <div className={styles.findingList}>{r.findings.map((f, index) => <article key={`${f.id}:${index}`} className={styles.finding} data-finding-status={value.finding_statuses?.[index]?.status}>
@@ -123,6 +137,7 @@ export function ReviewReportView({ value, details, fix, organizationId }: { valu
     <Notification tone="error" message={value.freshness_check === "unavailable" ? "Current PR freshness could not be checked." : ""} />
     {(!r.run.coverage_complete || r.run.status !== "completed") && <p className={styles.notice}>Coverage is incomplete. Some areas could not be fully reviewed.</p>}
     <EvidenceNavigation.Provider value={openEvidence}>
+    {r.findings.length > 0 && fix}
     <Tabs.Root value={tab} onValueChange={setTab}>
       <Tabs.List className={styles.reportTabs} aria-label="Review sections">
         <Tabs.Trigger className={styles.reportTab} value="overview">Overview</Tabs.Trigger>
@@ -140,7 +155,7 @@ export function ReviewReportView({ value, details, fix, organizationId }: { valu
     {r.scores && <div className={styles.scoreGrid}><ScoreCard label="Code quality" value={r.scores.code_quality} /><ScoreCard label="Security" value={r.scores.security} /></div>}
       </Tabs.Content>
       <Tabs.Content className={styles.tabPanel} value="findings" forceMount hidden={tab !== "findings"}>
-    <Findings value={value} fix={tab === "findings" ? fix : undefined} organizationId={organizationId} />
+    <Findings value={value} organizationId={organizationId} />
     {value.fix_prompt && r.findings.length > 1 && <FixPrompt label="AI fix prompt for all findings and verification gaps" value={value.fix_prompt} />}
       </Tabs.Content>
       {r.diagram && <Tabs.Content className={styles.tabPanel} value="map" forceMount hidden={tab !== "map"}><ReviewDiagram diagram={r.diagram} /></Tabs.Content>}

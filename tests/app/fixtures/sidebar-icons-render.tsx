@@ -47,4 +47,16 @@ test("standalone sidebar works without any application widget provider", () => {
   </SidebarProvider>);
   assert.match(html, /aria-label="Overview"/);
   assert.doesNotMatch(html, /Custom page|data-custom-icon/);
+  assert.match(html, /title="UI version"/);
+});
+
+test("an application About dialog replaces the sidebar version without removing account access", () => {
+  const html = renderToStaticMarkup(<SidebarProvider>
+    <AppSidebar section="dashboard" homeHref="/dashboard" organizations={[]} activeOrganization={null}
+      user={{ id: "test", name: "Test User", email: "test@example.invalid" }} busy={false} canCreateOrganization={true}
+      onSelectOrganization={noop} onCreateOrganization={noop} onSignOut={noop} onOpenAbout={noop} />
+  </SidebarProvider>);
+  assert.doesNotMatch(html, /title="UI version"/);
+  assert.match(html, /id="workspace-account-trigger"/);
+  assert.match(html, /aria-label="Account menu: Test User"/);
 });

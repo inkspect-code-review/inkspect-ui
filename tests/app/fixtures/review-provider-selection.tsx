@@ -46,3 +46,19 @@ for (const disabled of [false, true]) {
     assert.deepEqual(changes, []);
   });
 }
+
+
+test("a draft selection keeps the saved provider active until explicitly applied", () => {
+  const changes: string[] = [];
+  const tree = ReviewProviderSelector({ current: "managed", selected: "byok", options, disabled: false,
+    onChange: mode => changes.push(mode) });
+  const html = renderToStaticMarkup(tree);
+  const buttons = tree.props.children[1].props.children as ReactElement<ComponentProps<"button">>[];
+  assert.equal(buttons[0].props["aria-pressed"], false);
+  assert.equal(buttons[0].props.disabled, false, "The saved provider can be reselected to discard the draft");
+  assert.equal(buttons[1].props["aria-pressed"], true);
+  assert.equal((html.match(/>Active<\/span>/g) || []).length, 1);
+  assert.deepEqual(changes, [], "Viewing another provider does not apply it");
+  buttons[0].props.onClick?.({} as MouseEvent<HTMLButtonElement>);
+  assert.deepEqual(changes, ["managed"]);
+});

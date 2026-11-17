@@ -136,18 +136,21 @@ test("provider costs retain partial measurements without exposing individual mod
 });
 
 
-test("the fix component is not mounted outside Findings and reserves space while PR state is checked", () => {
+test("the fix banner mounts once above the tabs and reserves space while PR state is checked", () => {
   const value = fixture();
-  const fix = <ReviewFix jobId="J-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" pullUrl="https://github.com/team/repo/pull/3" request={async () => ({ available: true, fix: null })} />;
-  let mounted = false;
-  function Probe() { mounted = true; return <span>Fix component</span>; }
-  renderToStaticMarkup(<ReviewReportView value={value} fix={<Probe />} />);
-  assert.equal(mounted, false, "hidden force-mounted panels must not start GitHub requests");
+  const props = { jobId: "J-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", pullUrl: "https://github.com/team/repo/pull/3", request: async () => ({ available: true, fix: null }), openFindingCount: 1 };
+  const fix = <ReviewFix {...props} />;
+  let mounts = 0;
+  function Probe() { mounts++; return <span>Fix component</span>; }
+  const html = renderToStaticMarkup(<ReviewReportView value={value} fix={<Probe />} />);
+  assert.equal(mounts, 1);
+  assert.ok(html.indexOf("Fix component") < html.indexOf('role="tablist"'), "fix action must be visible on Overview above all tabs");
   const loading = renderToStaticMarkup(fix);
-  assert.match(loading, /From findings to fixes\./);
+  assert.match(loading, /1 open finding/);
   assert.match(loading, /<button[^>]*disabled=""[^>]*aria-busy="true"/);
   assert.match(loading, /Checking PR status…/);
   assert.match(loading, /Checking the PR on GitHub\./);
+  assert.equal(renderToStaticMarkup(<ReviewFix {...props} openFindingCount={0} />), "", "resolved findings must not show an idle fix action");
   value.report.findings = [];
   assert.doesNotMatch(renderToStaticMarkup(<ReviewReportView value={value} fix={fix} />), /Fix with Inkspect AI/);
 });

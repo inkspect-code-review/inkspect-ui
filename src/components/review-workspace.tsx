@@ -11,7 +11,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { OpenPull, ReportResponse, ReviewJob, ReviewRepository } from "@inkspect/core/lib/review-types";
 import { subscribeReviews, type LiveState } from "@inkspect/core/lib/review-realtime";
 import { reviewAction } from "@inkspect/core/lib/review-action";
-import { newestReviews, selectedReviewId, reviewsWithLinkedJob } from "@inkspect/core/lib/review-history";
+import { newestReviews, selectedReviewId, reviewsWithLinkedJob, summarizeOpenFindings } from "@inkspect/core/lib/review-history";
 import { GitPullRequest, Plus, ArrowUpRight, X } from "lucide-react";
 import { ReviewActivity } from "./review-activity";
 import { ReviewCostView } from "./review-cost";
@@ -139,13 +139,13 @@ export function ReviewWorkspace({ organizationId, initialRepositories }: { organ
     refreshJobs.current = () => { void load(); };
     void load(); return () => { stopped = true; refreshJobs.current = null; clearTimeout(timer); controller?.abort(); };
   }, [request, repository, repositoriesReady]);
-  useEffect(() => { refreshJobs.current?.(); }, [revision]);
+  useEffect(() => { refreshJobs.current?.(); }, [revision, findingStatusRevision]);
   useEffect(() => {
     const controller = new AbortController();
     Promise.resolve().then(() => { if (!controller.signal.aborted) setReport(current => current?.jobId === selected?.job.id ? current : null); });
     if (selected?.job.status === "completed") detailRequest("report", { jobId: selected.job.id }, undefined, controller.signal).then(value => { if (!controller.signal.aborted) setReport({ jobId: selected.job.id, value }); }).catch((error) => { reportBrowserError("browser.review.workspace", error); if (!controller.signal.aborted) setError(error.message); });
     return () => controller.abort();
-  }, [selected?.job.id, selected?.job.status, detailRequest, findingStatusRevision]);
+  }, [selected?.job.id, selected?.job.status, detailRequest, findingStatusRevision, revision]);
   const pull = pulls.find((p) => p.number === pullNumber);
   const action = reviewAction(reviews, pull, activeRepository, "", configuration?.credentialId || "");
   const historyReady = loadedRepository === repository && configuration?.repository === activeRepository && activeRepository > 0;
@@ -197,13 +197,16 @@ export function ReviewWorkspace({ organizationId, initialRepositories }: { organ
       <div className={styles.historyHeading}><h2>Review history</h2><span>Newest first</span></div>
       <Notification tone="info" message={historyWarning} />
       <nav className={styles.history} aria-label="Review history" aria-busy={!repositoriesReady || loadedRepository !== repository}>
-        {!repositoriesReady || loadedRepository !== repository ? <p>Loading reviews…</p> : !visibleReviews.length ? <p>No reviews yet. Start with an open pull request.</p> : <ol>{visibleReviews.map((row, index) => <li key={row.job.id}>
-          <button aria-current={row.job.id === selectedId ? "true" : undefined} onClick={() => { setSelectedId(row.job.id); setComposing(false); }}>
+        {!repositoriesReady || loadedRepository !== repository ? <p>Loading reviews…</p> : !visibleReviews.length ? <p>No reviews yet. Start with an open pull request.</p> : <ol>{visibleReviews.map((row, index) => {
+          const summary = row.finding_summary;
+          return <li key={row.job.id}>
+          <button aria-current={row.job.id === selectedId ? "true" : undefined} data-findings-tone={summary?.open ? summary.urgent ? "danger" : "warning" : undefined} onClick={() => { setSelectedId(row.job.id); setComposing(false); }}>
             <span className={styles.historyTitle}><GitPullRequest size={15} /><strong>PR #{row.snapshot.url.split("/").at(-1)}</strong>{index === 0 && <small>Latest</small>}</span>
             <span className={styles.historySubtitle}>{!repository && <span className={styles.historyRepository}>{historyRepositories.find(repo => String(repo.id) === row.snapshot.repository_id)?.full_name || "Repository"}</span>}{pulls.find(item => item.url === row.snapshot.url)?.title || `Commit ${row.snapshot.head.slice(0, 7)}`}</span>
             <span className={styles.historyMeta}><span className={styles.status} data-status={row.job.status}>{row.job.status.replaceAll("_", " ")}</span><time dateTime={row.job.created_at} title={new Date(row.job.created_at).toLocaleString()}>{new Date(row.job.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })} {new Date(row.job.created_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</time></span>
+            {!!summary?.open && <span className={styles.historyFindings}>{summary.open} open {summary.open === 1 ? "finding" : "findings"}</span>}
           </button>
-        </li>)}</ol>}
+        </li>; })}</ol>}
       </nav>
       <footer className={styles.sidebarFooter}><span className={styles.live} data-live={live === "live"} role="status">{live === "live" ? "Live updates" : "Checking for updates"}</span><Link href="/dashboard?view=repositories">Manage repositories <ArrowUpRight size={13} /></Link></footer>
     </aside>
@@ -234,7 +237,7 @@ export function ReviewWorkspace({ organizationId, initialRepositories }: { organ
         {!selected ? <div className={styles.empty}><GitPullRequest size={28} /><h2>Your next review starts here</h2><p>{repositories.length ? "Choose a review from the sidebar, or review an open pull request." : "Connect a repository to start reviewing pull requests."}</p>{repositories.length ? <button className={styles.primary} onClick={openComposer}>Start a review</button> : <Link href="/dashboard?view=integrations">Connect GitHub</Link>}</div> : <>
           <header className={styles.jobHeading}><div><div className={styles.jobTitle}><h2><ReviewPullTitle title={savedTitle} organizationId={!composing && selectedRepositoryConnected ? organizationId : undefined} repositoryId={selected.snapshot.repository_id} number={selected.snapshot.url.match(/\/pull\/([1-9]\d*)$/)?.[1]} fallback={`Pull request #${selected.snapshot.url.split("/").at(-1)}`} /></h2><span className={styles.status} data-status={selected.job.status}>{selected.job.status.replaceAll("_", " ")}</span></div><div className={styles.jobMeta}><a href={selected.snapshot.url} target="_blank" rel="noreferrer">PR #{selected.snapshot.url.split("/").at(-1)} <ArrowUpRight size={12} /></a><time dateTime={selected.job.created_at}>{new Date(selected.job.created_at).toLocaleString()}</time><code title={selected.snapshot.head}>{selected.snapshot.head.slice(0, 7)}</code></div></div>{!terminal(selected.job.status) && <button disabled={pending || selected.job.cancel_requested} onClick={cancel}>{selected.job.cancel_requested ? "Cancelling…" : "Cancel review"}</button>}</header>
           {!selectedRepositoryConnected && <p className={styles.notice}>This repository is no longer connected. Your saved review is available to read.</p>}
-          {selected.job.status === "completed" ? report?.jobId === selected.job.id ? <ReviewReportView key={selected.job.id} organizationId={organizationId} value={report.value} details={runDetails} fix={selectedRepositoryConnected ? <ReviewFix key={selected.job.id} jobId={selected.job.id} pullUrl={selected.snapshot.url} request={detailRequest} /> : undefined} /> : <ReviewSkeleton heading={false} /> : <div className={styles.runState}><h3>{selected.job.status === "failed" ? "Review could not finish" : selected.job.status === "cancelled" ? "Review cancelled" : selected.job.status === "paused" ? "Review paused" : selected.job.status === "running" ? "Review in progress" : "Review queued"}</h3><p>{selected.job.status === "paused" ? edition.reviewPausedMessage : pausedAhead ? `Waiting for the paused review of PR #${pausedAhead.snapshot.url.split("/").at(-1)} to resume.` : selected.job.status === "queued" ? "Waiting for a review worker to start." : terminal(selected.job.status) ? "Start a new review of this pull request when you’re ready to try again." : "You can leave this page. The review continues in the background."}</p><Notification tone="error" message={selected.error_message} notificationKey={selected.job.id} />{terminal(selected.job.status) && repositories.length > 0 && <button onClick={openComposer}>Review a pull request</button>}</div>}
+          {selected.job.status === "completed" ? report?.jobId === selected.job.id ? <ReviewReportView key={selected.job.id} organizationId={organizationId} value={report.value} details={runDetails} fix={selectedRepositoryConnected ? <ReviewFix key={selected.job.id} openFindingCount={selected.finding_summary?.open ?? summarizeOpenFindings(report.value.report.findings, report.value.finding_statuses).open} jobId={selected.job.id} pullUrl={selected.snapshot.url} request={detailRequest} /> : undefined} /> : <ReviewSkeleton heading={false} /> : <div className={styles.runState}><h3>{selected.job.status === "failed" ? "Review could not finish" : selected.job.status === "cancelled" ? "Review cancelled" : selected.job.status === "paused" ? "Review paused" : selected.job.status === "running" ? "Review in progress" : "Review queued"}</h3><p>{selected.job.status === "paused" ? edition.reviewPausedMessage : pausedAhead ? `Waiting for the paused review of PR #${pausedAhead.snapshot.url.split("/").at(-1)} to resume.` : selected.job.status === "queued" ? "Waiting for a review worker to start." : terminal(selected.job.status) ? "Start a new review of this pull request when you’re ready to try again." : "You can leave this page. The review continues in the background."}</p><Notification tone="error" message={selected.error_message} notificationKey={selected.job.id} />{terminal(selected.job.status) && repositories.length > 0 && <button onClick={openComposer}>Review a pull request</button>}</div>}
           {selected.job.status !== "completed" && runDetails}
         </>}
       </div>

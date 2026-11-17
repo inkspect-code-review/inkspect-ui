@@ -22,6 +22,11 @@
 .history button { display: grid; width: 100%; min-width: 0; gap: 7px; padding: 12px; text-align: left; background: transparent; border-color: transparent; }
 .history button:hover { background: var(--dash-nav-hover); }
 .history button[aria-current="true"] { background: var(--dash-nav-active); border-color: var(--dash-nav-border); }
+.history button[data-findings-tone] { position: relative; }
+.history button[data-findings-tone="warning"] { --finding-color: var(--dash-warning-text); }
+.history button[data-findings-tone="danger"] { --finding-color: var(--dash-error-text); }
+.history button[data-findings-tone]::before { content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 3px; background: var(--finding-color); }
+.historyFindings { justify-self: start; font-size: 10px; line-height: 1.6; padding: 1px 6px; border: 1px solid color-mix(in srgb, var(--finding-color) 35%, transparent); border-radius: 4px; color: var(--finding-color); background: color-mix(in srgb, var(--finding-color) 8%, transparent); }
 .historyTitle { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .historyTitle svg { flex-shrink: 0; color: var(--dash-muted); }
 .historyTitle strong { font-size: 12px; font-weight: 600; }
@@ -96,6 +101,11 @@
 .scoreCard meter::-moz-meter-bar { background: var(--score-color); }
 .scoreCard p { font-size: 12px; color: var(--dash-muted); line-height: 1.75; margin-bottom: 8px; }
 .scoreImprovement { font-size: 11px; margin-top: 12px; }
+.improvementHeading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; }
+.improvementHeading h4 { margin: 0; font-size: 11px; font-weight: 600; }
+.improvementCopy { min-width: 104px; min-height: 32px; padding: 5px 10px; font-size: 11px; white-space: nowrap; }
+.improvementCopy:hover:not(:disabled) { background: var(--dash-nav-hover); }
+.scoreImprovement > p { margin: 8px 0 0; }
 .reportSection { padding-block: 26px 6px; scroll-margin-top: 24px; }
 .sectionHeading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
 .sectionHeading h3 { font-size: 14px; font-weight: 600; margin: 0; }
@@ -261,21 +271,21 @@
 .evidenceSection:has(> .evidence) { padding-bottom: 0; }
 @media (max-width: 760px) { .reportTabs { gap: 18px; } }
 
-.aiFix { display: flex; align-items: center; gap: 18px; padding: 24px; margin: 8px 0 24px; border: 1px solid var(--dash-border); border-left: 3px solid var(--dash-accent); border-radius: 10px; background: var(--dash-card); }
-.aiFixMark { width: 44px; height: 44px; display: grid; place-items: center; flex: 0 0 auto; border: 1px solid var(--dash-border); border-radius: 50%; color: var(--dash-accent); }
+.aiFix { display: flex; align-items: center; gap: 14px; padding: 14px 16px; margin: 0 0 20px; border: 1px solid var(--dash-border); border-left: 3px solid var(--dash-accent); border-radius: 8px; background: var(--dash-card); }
+.aiFixMark { display: grid; place-items: center; flex: 0 0 auto; color: var(--dash-accent); }
 .aiFixCopy { flex: 1; min-width: 0; }
-.aiFixCopy h3 { margin: 0 0 6px; font-size: 18px; font-weight: 600; letter-spacing: -.45px; }
+.aiFixCopy h3 { margin: 0 0 4px; font-size: 13px; font-weight: 600; }
 .aiFixCopy p { margin: 0; max-width: 64ch; font-size: 12px; color: var(--dash-muted); line-height: 1.7; }
-.aiFixCopy small { display: block; margin-top: 8px; color: var(--dash-muted); font-size: 10px; }
+.aiFixCopy small { display: block; margin-top: 4px; color: var(--dash-muted); font-size: 10px; }
 .aiFixCopy .aiFixError { margin-top: 10px; color: var(--dash-warning-text); }
-.aiFixAction { width: 228px; max-width: 100%; display: flex; flex-direction: column; align-items: center; gap: 8px; flex-shrink: 0; }
+.aiFixAction { width: 190px; max-width: 100%; display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; }
 .aiFixAction button, .aiFixAction a { width: 100%; transition: background-color .18s ease, color .18s ease, opacity .18s ease; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; }
 .aiFixAction a { color: var(--dash-success-text); font-weight: 600; }
-.aiFixAction > span { min-height: 3.3em; color: var(--dash-muted); font-size: 10px; text-align: center; }
+.aiFixAction > span { min-height: 1.65em; color: var(--dash-muted); font-size: 10px; text-align: center; }
 .aiFixSpinner { animation: fixSpin 1.2s linear infinite; }
 .aiFixButtonContent { display: inline-flex; align-items: center; justify-content: center; gap: 8px; animation: fixButtonReveal .18s ease-out; }
 @keyframes fixButtonReveal { from { opacity: .4; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes fixSpin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .aiFixSpinner, .aiFixButtonContent { animation: none; } .aiFixAction button, .aiFixAction a { transition: none; } }
-@media (max-width: 1100px) { .aiFix { flex-wrap: wrap; } .aiFixAction { margin-left: 62px; align-items: flex-start; } }
-@media (max-width: 600px) { .aiFix { padding: 18px; gap: 12px; } .aiFixMark { display: none; } .aiFixAction { margin-left: 0; width: 100%; align-items: stretch; } .aiFixAction > span { text-align: center; } }
+@media (max-width: 1100px) { .aiFixMark { display: none; } }
+@media (max-width: 600px) { .aiFix { flex-wrap: wrap; padding: 14px; gap: 12px; } .aiFixAction { width: 100%; align-items: stretch; } .aiFixAction > span { text-align: center; } }
