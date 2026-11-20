@@ -6,7 +6,39 @@ as appropriate. The package's `0.1.0` version is not a claim of a tagged release
 
 ## Unreleased
 
+### 2026-11-18
+
+#### Fixed
+
+- Display findings as responsive cards with readable repository and PR context, footer status actions, and separate date/severity sorting controls.
+
+- Clarify that account linking first requires signing in with an already connected method, and omit the new provider’s icon from that confirmation button.
+
+- Open repository details directly from dashboard repository rows and preserve the selected repository in navigation URLs.
+
+#### Added
+
+- Allow applications to add profile fields inside the account settings card.
+
+- Allow applications to register additional settings tabs and customize personal settings without changing default sections.
+
+- Allow applications to extend workspace settings and provide a settings panel.
+
 ### 2026-11-17
+
+#### Fixed
+
+- Show why a current-commit review cannot start and remove the waiting spinner when no review is scheduled.
+
+- Wait for a review of the current PR head, then open that review instead of asking users to start another review.
+
+- Accept an initial review overview to render dashboard content without a loading-layout swap; reserve recent review title space while older titles load and keep rendered timestamps consistent across time zones.
+
+- Offer a review of the latest PR version instead of auto-fix on stale reviews; retain readiness across progress refreshes.
+
+- Keep fix-action errors visible when background status polling succeeds, and allow repeated attempts to show the same error again.
+
+- Avoid replaying historical auto-fix errors as new notifications when opening a review; continue reporting failures from current attempts.
 
 #### Changed
 

@@ -18,19 +18,22 @@ import { WorkspaceLogo } from "./workspace-logo";
 import shared from "./dashboard.module.css";
 import styles from "./settings.module.css";
 
-type SettingsWorkspaceProps = {
+export type SettingsSection = { id: string; label: string; description: string; icon: LucideIcon; content: ReactNode };
+type SettingsExtensions = { additionalSections?: readonly SettingsSection[]; defaultSection?: string; accountFields?: ReactNode };
+type SettingsWorkspaceProps = SettingsExtensions & {
   organization: DashboardOrganization;
   canManage: boolean;
   user: { name: string; email: string };
   signInMethods?: SignInMethod[];
   logoUploadsEnabled: boolean;
+  workspaceFooter?: ReactNode;
 };
 
 export function SettingsWorkspace(props: SettingsWorkspaceProps) {
   return <WorkspaceSettings {...props} />;
 }
 
-function WorkspaceSettings({ organization, canManage, user, signInMethods, logoUploadsEnabled }: SettingsWorkspaceProps) {
+function WorkspaceSettings({ organization, canManage, user, signInMethods, logoUploadsEnabled, workspaceFooter, additionalSections, defaultSection, accountFields }: SettingsWorkspaceProps) {
   const router = useRouter();
   const { notify, clearToast } = useNotifications();
   const [name, setName] = useState(organization.name);
@@ -68,7 +71,7 @@ function WorkspaceSettings({ organization, canManage, user, signInMethods, logoU
     } finally { setSaving(false); }
   }
 
-  return <SettingsTabs user={user} signInMethods={signInMethods} workspace={<>
+  return <SettingsTabs user={user} signInMethods={signInMethods} additionalSections={additionalSections} defaultSection={defaultSection} accountFields={accountFields} workspace={<>
         <section className={styles.section} aria-labelledby="workspace-settings-heading">
           <header className={styles.sectionHeader}>
             <div><h2 id="workspace-settings-heading">Workspace</h2><p>The shared home for your repositories and reviews.</p></div>
@@ -93,15 +96,16 @@ function WorkspaceSettings({ organization, canManage, user, signInMethods, logoU
           </form>
         </section>
         <AutomaticReviewSettings key={organization.id} organizationId={organization.id} />
+        {workspaceFooter}
   </>} reviewProvider={<ByokSettings organizationId={organization.id} />} />;
 }
 
-type AccountSettingsProps = {
+type AccountSettingsProps = SettingsExtensions & {
   user: { name: string; email: string };
   signInMethods?: SignInMethod[];
 };
 
-function AccountSettings({ user, signInMethods }: AccountSettingsProps) {
+function AccountSettings({ user, signInMethods, accountFields }: AccountSettingsProps) {
   return <div className={styles.accountCards}><section className={`${styles.section} ${styles.accountCard}`} aria-labelledby="account-settings-heading">
     <header className={styles.sectionHeader}>
       <div><h2 id="account-settings-heading">Your account</h2><p>Your identity and sign-in methods across all workspaces.</p></div>
@@ -110,6 +114,7 @@ function AccountSettings({ user, signInMethods }: AccountSettingsProps) {
       <span className={styles.avatar} aria-hidden="true">{(user.name || user.email).slice(0, 2).toUpperCase()}</span>
       <div><strong>{user.name || "Your account"}</strong><span>{user.email}</span></div>
     </div>
+    {accountFields}
     {signInMethods && <SignInMethods methods={signInMethods} email={user.email} />}
   </section>
   <section className={`${styles.section} ${styles.accountCard}`} aria-labelledby="security-settings-heading">
@@ -127,17 +132,22 @@ function SettingsTab({ value, label, description, icon: Icon }: { value: string;
   </Tabs.Trigger>;
 }
 
-function SettingsTabs({ workspace, reviewProvider, user, signInMethods }: AccountSettingsProps & { workspace?: ReactNode; reviewProvider?: ReactNode }) {
-  return <Tabs.Root className={styles.layout} orientation="vertical" defaultValue={workspace ? "workspace" : "account"}>
+function SettingsTabs({ workspace, reviewProvider, user, signInMethods, additionalSections = [], defaultSection, accountFields }: AccountSettingsProps & { workspace?: ReactNode; reviewProvider?: ReactNode }) {
+  const sections = additionalSections.filter(section => !["workspace", "review-provider", "account", "appearance"].includes(section.id));
+  const available = ["account", "appearance", ...(workspace ? ["workspace"] : []), ...(reviewProvider ? ["review-provider"] : []), ...sections.map(section => section.id)];
+  const initialSection = defaultSection && available.includes(defaultSection) ? defaultSection : workspace ? "workspace" : "account";
+  return <Tabs.Root className={styles.layout} orientation="vertical" defaultValue={initialSection}>
     <Tabs.List className={styles.tabList} aria-label="Settings sections">
       {workspace && <SettingsTab value="workspace" icon={Building2} label="Workspace" description="Name, logo, and review automation" />}
       {reviewProvider && <SettingsTab value="review-provider" icon={Cpu} label="Review provider" description="Inkspect AI or your own API key" />}
       <SettingsTab value="account" icon={UserRound} label="Your account" description="Profile, sign-in, and security" />
+      {sections.map(section => <SettingsTab key={section.id} value={section.id} icon={section.icon} label={section.label} description={section.description} />)}
       <SettingsTab value="appearance" icon={Palette} label="Appearance" description="Theme for this browser" />
     </Tabs.List>
     {workspace && <Tabs.Content className={styles.tabPanel} value="workspace" forceMount>{workspace}</Tabs.Content>}
     {reviewProvider && <Tabs.Content className={styles.tabPanel} value="review-provider" forceMount>{reviewProvider}</Tabs.Content>}
-    <Tabs.Content className={`${styles.tabPanel} ${styles.accountPanel}`} value="account" forceMount><AccountSettings user={user} signInMethods={signInMethods} /></Tabs.Content>
+    <Tabs.Content className={`${styles.tabPanel} ${styles.accountPanel}`} value="account" forceMount><AccountSettings user={user} signInMethods={signInMethods} accountFields={accountFields} /></Tabs.Content>
+    {sections.map(section => <Tabs.Content key={section.id} className={styles.tabPanel} value={section.id} forceMount>{section.content}</Tabs.Content>)}
     <Tabs.Content className={styles.tabPanel} value="appearance" forceMount><ThemePicker /></Tabs.Content>
   </Tabs.Root>;
 }

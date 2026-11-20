@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition, type FormEvent, type ReactNode, type ComponentType } from "react";
 import { authClient } from "@inkspect/core/lib/auth-client";
 import { workspaceHomeHref, type DashboardSummary, type DashboardMember, type DashboardOrganization, type DashboardSection } from "@inkspect/core/lib/dashboard";
-import { PersonalSettings, SettingsWorkspace } from "./settings-workspace";
+import { PersonalSettings as DefaultPersonalSettings, SettingsWorkspace as DefaultSettingsWorkspace } from "./settings-workspace";
 import { DashboardIcon } from "./dashboard-icon";
 import { GitHubPermissionBanner } from "./github-permission-banner";
 import styles from "./dashboard.module.css";
@@ -19,7 +19,7 @@ import { AppSidebar } from "./app-sidebar";
 import { SidebarInset, SidebarTrigger, useSidebar } from "./ui/sidebar";
 import { Separator } from "./ui/separator";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "./ui/breadcrumb";
-import { DashboardOverview } from "./dashboard-overview";
+import { DashboardOverview, type InitialReviewOverview } from "./dashboard-overview";
 
 import { RepositoriesWorkspace } from "./repositories-workspace";
 import { ReviewWorkspace } from "./review-workspace";
@@ -41,6 +41,8 @@ export type DashboardExtensionProps = {
   supportContext: DashboardShellProps["supportContext"]; turnstileSiteKey?: string;
 };
 export type DashboardPanels = {
+  SettingsWorkspace?: typeof DefaultSettingsWorkspace;
+  PersonalSettings?: typeof DefaultPersonalSettings;
   AboutDialog?: ComponentType<{ open: boolean; onOpenChange: (open: boolean) => void }>;
   FeedbackDialog?: ComponentType<{ open: boolean; onOpenChange: (open: boolean) => void; organization: DashboardOrganization | null; pageName: string }>;
   UsagePanel: ComponentType<{ organizationId: string; members: DashboardMember[] }>;
@@ -54,6 +56,7 @@ export type DashboardShellProps = {
   turnstileSiteKey?: string;
   supportContext?: { reason: "general" | "repository-size" | "open-source"; repositoryId?: string };
   summary?: DashboardSummary;
+  initialReviewOverview?: InitialReviewOverview;
   github?: WorkspaceStatus;
   integrationError?: GitHubConnectionError;
   integrationConnected?: boolean;
@@ -67,7 +70,7 @@ export type DashboardShellProps = {
   user: { id: string; name: string; email: string };
 };
 
-export function DashboardShell({ headerAnnouncement, panels: { MembersPanel, UsagePanel, FeedbackDialog, AboutDialog, extensions }, canCreateOrganization, section, supportContext, turnstileSiteKey, organizations, activeOrganization, members, user, github, summary, onboarding = false, onboardingError = false, integrationError, integrationConnected = false, signInMethods, logoUploadsEnabled = false }: DashboardShellProps & { panels: DashboardPanels; headerAnnouncement?: ReactNode }) {
+export function DashboardShell({ headerAnnouncement, panels: { MembersPanel, UsagePanel, FeedbackDialog, AboutDialog, extensions, SettingsWorkspace = DefaultSettingsWorkspace, PersonalSettings = DefaultPersonalSettings }, canCreateOrganization, section, supportContext, turnstileSiteKey, organizations, activeOrganization, members, user, github, summary, initialReviewOverview, onboarding = false, onboardingError = false, integrationError, integrationConnected = false, signInMethods, logoUploadsEnabled = false }: DashboardShellProps & { panels: DashboardPanels; headerAnnouncement?: ReactNode }) {
   const edition = useDashboardEdition();
   const ExtensionPanel = extensions?.[section];
   const workspaceMain = useRef<HTMLDivElement>(null);
@@ -204,7 +207,7 @@ export function DashboardShell({ headerAnnouncement, panels: { MembersPanel, Usa
             {organizations.length ? <div className={styles.organizationChoices}>{organizations.map((org) => <button className={styles.secondaryButton} key={org.id} disabled={busy} onClick={() => selectOrganization(org.id)}>{org.name}<DashboardIcon name="arrow" /></button>)}</div> : <button className={styles.primaryButton} onClick={openCreate} disabled={busy}><DashboardIcon name="plus" />Create organization</button>}
           </div>
           <div className={styles.panelFooter}><Image src="/brand/inkspect-symbol-white.svg" alt="" width={14} height={18} /><span>A place for your code. A shared perspective for your team.</span></div>
-        </section> : section === "dashboard" && summary ? <DashboardOverview summary={summary} github={github} organizationId={activeOrganization.id} /> : section === "usage" ? <UsagePanel organizationId={activeOrganization.id} members={members} /> : ExtensionPanel ? <ExtensionPanel key={activeOrganization.id} organizationId={activeOrganization.id} members={members} organization={activeOrganization} user={user} repositories={github?.repositories ?? []} supportContext={supportContext} turnstileSiteKey={turnstileSiteKey} /> : needsReviewConnection && github ? <IntegrationsPanel organizationId={activeOrganization.id} github={github} error={integrationError} connected={integrationConnected} returnTo="reviews" /> : section === "findings" ? <FindingsPanel key={activeOrganization.id} organizationId={activeOrganization.id} workspaceName={activeOrganization.name} canManage={!!github?.canManage} connected={!!github?.connections.length} repositories={github?.repositories.map(repo => ({ id: repo.id, full_name: repo.fullName, private: repo.private })) ?? []} /> : section === "reviews" ? <ReviewWorkspace key={activeOrganization.id} organizationId={activeOrganization.id} initialRepositories={github?.repositories.map(repo => ({ id: repo.id, full_name: repo.fullName, private: repo.private }))} /> : section === "integrations" && github ? <IntegrationsPanel organizationId={activeOrganization.id} github={github} error={integrationError} connected={integrationConnected} /> : section === "repositories" && !!github?.connections.length ? <RepositoriesWorkspace key={activeOrganization.id} organizationId={activeOrganization.id} repositories={github.repositories} canManage={github.canManage} /> : section === "knowledge" ? <KnowledgeCenter key={activeOrganization.id} organizationId={activeOrganization.id} canManage={!!github?.canManage} /> : section === "members" ? <MembersPanel key={activeOrganization.id} organizationId={activeOrganization.id} members={members} canManage={!!github?.canManage} /> : section === "settings" ? <SettingsWorkspace logoUploadsEnabled={logoUploadsEnabled} key={activeOrganization.id} organization={activeOrganization} canManage={!!github?.canManage} user={user} signInMethods={signInMethods} /> : section === "repositories" ? <RepositoryConnectionCard section="repositories" workspaceName={activeOrganization.name} canManage={!!github?.canManage} /> : <section className={styles.panel}>
+        </section> : section === "dashboard" && summary ? <DashboardOverview initialOverview={initialReviewOverview} summary={summary} github={github} organizationId={activeOrganization.id} /> : section === "usage" ? <UsagePanel organizationId={activeOrganization.id} members={members} /> : ExtensionPanel ? <ExtensionPanel key={activeOrganization.id} organizationId={activeOrganization.id} members={members} organization={activeOrganization} user={user} repositories={github?.repositories ?? []} supportContext={supportContext} turnstileSiteKey={turnstileSiteKey} /> : needsReviewConnection && github ? <IntegrationsPanel organizationId={activeOrganization.id} github={github} error={integrationError} connected={integrationConnected} returnTo="reviews" /> : section === "findings" ? <FindingsPanel key={activeOrganization.id} organizationId={activeOrganization.id} workspaceName={activeOrganization.name} canManage={!!github?.canManage} connected={!!github?.connections.length} repositories={github?.repositories.map(repo => ({ id: repo.id, full_name: repo.fullName, private: repo.private })) ?? []} /> : section === "reviews" ? <ReviewWorkspace key={activeOrganization.id} organizationId={activeOrganization.id} initialRepositories={github?.repositories.map(repo => ({ id: repo.id, full_name: repo.fullName, private: repo.private }))} /> : section === "integrations" && github ? <IntegrationsPanel organizationId={activeOrganization.id} github={github} error={integrationError} connected={integrationConnected} /> : section === "repositories" && !!github?.connections.length ? <RepositoriesWorkspace key={activeOrganization.id} organizationId={activeOrganization.id} repositories={github.repositories} canManage={github.canManage} /> : section === "knowledge" ? <KnowledgeCenter key={activeOrganization.id} organizationId={activeOrganization.id} canManage={!!github?.canManage} /> : section === "members" ? <MembersPanel key={activeOrganization.id} organizationId={activeOrganization.id} members={members} canManage={!!github?.canManage} /> : section === "settings" ? <SettingsWorkspace logoUploadsEnabled={logoUploadsEnabled} key={activeOrganization.id} organization={activeOrganization} canManage={!!github?.canManage} user={user} signInMethods={signInMethods} /> : section === "repositories" ? <RepositoryConnectionCard section="repositories" workspaceName={activeOrganization.name} canManage={!!github?.canManage} /> : <section className={styles.panel}>
           <div className={styles.panelHeader}><span>{current.name}</span><span className={styles.muted}>{activeOrganization.name}</span></div>
           <div className={styles.emptyState}><div className={styles.emptyArtwork}><DashboardIcon name={section} /></div><h2>Give every review the full picture.</h2><p>No knowledge added yet. This is where your organization’s conventions, architecture, and review guidelines come together.</p></div>
           <div className={styles.panelFooter}><Image src="/brand/inkspect-symbol-white.svg" alt="" width={14} height={18} /><span>Read between the lines.</span></div>

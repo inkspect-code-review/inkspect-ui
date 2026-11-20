@@ -138,7 +138,7 @@ test("provider costs retain partial measurements without exposing individual mod
 
 test("the fix banner mounts once above the tabs and reserves space while PR state is checked", () => {
   const value = fixture();
-  const props = { jobId: "J-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", pullUrl: "https://github.com/team/repo/pull/3", request: async () => ({ available: true, fix: null }), openFindingCount: 1 };
+  const props = { jobId: "J-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", pullUrl: "https://github.com/team/repo/pull/3", request: async () => ({ available: true, fix: null }), openFindingCount: 1, onReviewLatest: () => {} };
   const fix = <ReviewFix {...props} />;
   let mounts = 0;
   function Probe() { mounts++; return <span>Fix component</span>; }

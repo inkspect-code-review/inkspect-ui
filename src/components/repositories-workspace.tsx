@@ -5,6 +5,7 @@ import { useDashboardEdition, useDashboardWidgets } from "./dashboard-edition";
 import { productFetch } from "@inkspect/core/lib/api-client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { RepositoryEmptyState } from "./repository-empty-state";
 import { useEffect, useRef, useState } from "react";
 import type { Repository } from "@inkspect/core/lib/github";
@@ -25,13 +26,14 @@ function Star({ filled }: { filled: boolean }) {
   return <svg width="16" height="16" viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="m12 3 2.8 5.7 6.3.9-4.5 4.4 1.1 6.2-5.7-3-5.7 3 1.1-6.2L3.2 9.6l6.3-.9Z" /></svg>;
 }
 export function RepositoriesWorkspace({ organizationId, repositories, canManage }: { organizationId: string; repositories: Repository[]; canManage: boolean }) {
+  const searchParams = useSearchParams();
   const [availableRepositories, setAvailableRepositories] = useState(repositories);
   useEffect(() => { const controller = new AbortController(); productFetch(endpoint(organizationId, "list"), { signal: controller.signal, cache: "no-store" }).then(result).then(value => { if (!controller.signal.aborted) setAvailableRepositories(value.repositories); }).catch(() => {}); return () => controller.abort(); }, [organizationId, repositories]);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const repositoryList = useRef<HTMLUListElement>(null);
   const [onlyStars, setOnlyStars] = useState(false);
-  const [selected, setSelected] = useState(repositories[0]?.id);
+  const selected = availableRepositories.find(repo => String(repo.id) === searchParams.get("repositoryId"))?.id ?? availableRepositories[0]?.id;
   const [stars, setStars] = useState<number[]>([]);
   const [pending, setPending] = useState<number[]>([]);
   const [ready, setReady] = useState(false);
@@ -69,7 +71,7 @@ export function RepositoriesWorkspace({ organizationId, repositories, canManage 
       <Notification tone="error" message={error} notificationKey={starAttempt} action={!ready ? { label: "Retry loading repositories", onClick: () => setStarAttempt(value => value + 1) } : undefined} />
       <ul ref={repositoryList} className={styles.repositoryList}>
         {pageRepositories.map(repo => <li key={repo.id} data-selected={selected === repo.id}>
-          <button className={styles.selectRepo} aria-current={selected === repo.id ? "true" : undefined} onClick={() => setSelected(repo.id)}><DashboardIcon name="repositories" /><span><strong>{repo.fullName.split("/").slice(1).join("/") || repo.fullName}</strong><small>{repo.fullName.split("/")[0]} <span aria-hidden="true">/</span> {repo.private ? "Private" : "Public"}</small></span></button>
+          <Link className={styles.selectRepo} aria-current={selected === repo.id ? "true" : undefined} href={`/dashboard?${new URLSearchParams({ ...Object.fromEntries(searchParams), view: "repositories", repositoryId: String(repo.id) })}`} scroll={false}><DashboardIcon name="repositories" /><span><strong>{repo.fullName.split("/").slice(1).join("/") || repo.fullName}</strong><small>{repo.fullName.split("/")[0]} <span aria-hidden="true">/</span> {repo.private ? "Private" : "Public"}</small></span></Link>
           <button className={styles.star} aria-label={`${stars.includes(repo.id) ? "Unstar" : "Star"} ${repo.fullName}`} aria-pressed={stars.includes(repo.id)} disabled={!ready || pending.includes(repo.id)} onClick={() => void toggleStar(repo.id)}><Star filled={stars.includes(repo.id)} /></button>
         </li>)}
       </ul>
