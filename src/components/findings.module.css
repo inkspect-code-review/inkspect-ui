@@ -25,25 +25,31 @@
 .toolbar button:hover { background: var(--dash-secondary-hover); }
 .toolbar button:disabled { opacity: .6; cursor: wait; }
 .toolbar button:focus-visible, .empty a:focus-visible { outline: 2px solid var(--dash-accent); outline-offset: 3px; }
-.tableScroll { overflow-x: auto; }
-.table { width: 100%; min-width: 720px; border-collapse: collapse; text-align: left; font-size: 13px; }
-.table th { padding: 12px 18px; background: var(--dash-table-heading); color: var(--dash-muted); font-size: 12px; font-weight: 500; }
-.sortButton { display: inline-flex; align-items: center; gap: 7px; padding: 4px 0; border: 0; border-radius: 3px; background: transparent; color: inherit; font: inherit; white-space: nowrap; cursor: pointer; }
-.sortButton:hover, .table th[aria-sort="ascending"], .table th[aria-sort="descending"] { color: var(--dash-text); }
-.sortButton:focus-visible { outline: 2px solid var(--dash-accent); outline-offset: 4px; }
-.table td { padding: 16px 18px; border-top: 1px solid var(--dash-border); vertical-align: top; }
-.table tbody tr { position: relative; }
-.table tbody tr:hover, .table tbody tr:focus-within { background: var(--dash-nav-hover); }
-.table small { display: block; margin-top: 5px; color: var(--dash-muted); font-size: 11px; }
-.finding { width: 55%; min-width: 260px; }
-.findingLink { color: var(--dash-text); font-weight: 500; text-decoration: none; overflow-wrap: anywhere; }
-.table tr[data-finding-status="resolved"] .findingLink { color: var(--dash-muted); text-decoration: line-through; }
-.findingLink::after { content: ""; position: absolute; inset: 0; }
-.findingLink:focus-visible { outline: none; }
-.findingLink:focus-visible::after { outline: 2px solid var(--dash-accent); outline-offset: -2px; }
-.location { display: block; margin-top: 6px; color: var(--dash-muted); font-size: 11px; overflow-wrap: anywhere; }
-.repository { overflow-wrap: anywhere; }
-.date { white-space: nowrap; font-size: 12px; }
+.sortControls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 0 24px 16px; color: var(--dash-muted); font-size: 12px; }
+.sortControls > span:first-child { margin-right: 4px; }
+.sortButton { display: inline-flex; align-items: center; gap: 7px; padding: 7px 10px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: inherit; font: inherit; white-space: nowrap; cursor: pointer; }
+.sortButton:hover { color: var(--dash-text); background: var(--dash-nav-hover); }
+.sortButton[aria-pressed="true"] { border-color: var(--dash-border); background: var(--dash-secondary); color: var(--dash-text); }
+.sortButton:focus-visible { outline: 2px solid var(--dash-accent); outline-offset: 3px; }
+.cards { display: grid; gap: 12px; margin: 0; padding: 0 24px 24px; list-style: none; }
+.card { min-width: 0; padding: 18px 20px 0; border: 1px solid var(--dash-border); border-radius: 9px; }
+.cardHeader { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 16px; }
+.badges { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.advisory { color: var(--dash-muted); font-size: 11px; }
+.finding { margin: 14px 0 0; font-size: 15px; line-height: 1.5; font-weight: 500; }
+.findingLink { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; border-radius: 3px; color: var(--dash-text); font-weight: inherit; text-decoration: none; overflow-wrap: anywhere; }
+.findingLink span { min-width: 0; }
+.findingLink svg { flex-shrink: 0; margin-top: 3px; color: var(--dash-muted); }
+.findingLink:hover span { text-decoration: underline; text-underline-offset: 3px; }
+.card[data-finding-status="resolved"] .findingLink { color: var(--dash-muted); text-decoration: line-through; }
+.findingLink:focus-visible { outline: 2px solid var(--dash-accent); outline-offset: 4px; }
+.location { display: block; margin-top: 6px; color: var(--dash-muted); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.context { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 16px; margin: 16px 0; font-size: 12px; line-height: 1.5; }
+.repository { min-width: 0; color: var(--dash-text); overflow-wrap: anywhere; }
+.pullRequest { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; color: var(--dash-muted); white-space: nowrap; }
+.date { color: var(--dash-muted); font-size: 11px; }
+.date time { display: inline-flex; flex-wrap: wrap; gap: 8px; }
+.cardFooter { padding: 12px 0; border-top: 1px solid var(--dash-border); }
 .severity { display: inline-flex; border: 1px solid var(--dash-border); border-radius: 5px; padding: 3px 7px; color: var(--dash-muted); font-size: 11px; font-weight: 600; text-transform: capitalize; }
 .severity[data-severity="critical"], .severity[data-severity="high"] { color: var(--dash-error-text); border-color: var(--dash-error-border); background: var(--dash-error-bg); }
 .severity[data-severity="medium"] { color: var(--dash-warning-text); }
@@ -60,4 +66,4 @@
 .pagination button:hover:not(:disabled) { background: var(--dash-secondary-hover); }
 .pagination button:disabled { opacity: .45; cursor: default; }
 .pagination button:focus-visible { outline: 2px solid var(--dash-accent); outline-offset: 2px; }
-@media (max-width: 640px) { .toolbar { padding: 16px; align-items: flex-start; } .toolbar p { max-width: 210px; line-height: 1.5; } .toolbar button { flex-shrink: 0; } }
+@media (max-width: 640px) { .sortControls { padding: 0 16px 14px; } .cards { padding: 0 16px 16px; } .card { padding: 14px 14px 0; } .toolbar { padding: 16px; align-items: flex-start; } .toolbar p { max-width: 210px; line-height: 1.5; } .toolbar button { flex-shrink: 0; } }

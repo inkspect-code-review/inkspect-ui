@@ -13,3 +13,9 @@
 .control button:disabled { opacity: .6; }
 .control :is(button,a):focus-visible { outline: 2px solid var(--dash-accent); outline-offset: 3px; }
 .error { max-width: 220px; color: var(--dash-error-text); }
+
+.control[data-inline] { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 8px 12px; width: 100%; min-width: 0; }
+.control[data-inline] .metadata { flex: 1 1 160px; width: auto; height: auto; min-width: 0; color: var(--dash-muted); font-size: 11px; white-space: normal; overflow-wrap: anywhere; }
+.control[data-inline] .metadata:empty { display: none; }
+.control[data-inline] button { width: auto; max-width: 100%; margin-left: auto; padding: 7px 10px; }
+@media (max-width: 480px) { .control[data-inline] .metadata:not(:empty) { order: 1; flex-basis: 100%; } }

@@ -62,12 +62,12 @@ export function AccountLinkForm({ provider, email, connected, needsReauth, callb
   </div>;
 
   return <div className="login-content">
-    <h1>{reauth ? "Confirm it’s you." : `Connect ${name}?`}</h1>
-    <p className="intro-copy">{reauth ? "Sign in again using your existing method to confirm this change." : <>You’re signed in as <strong>{email}</strong>. Continue to {name} and choose the account with this same email address.</>}</p>
+    <h1>{reauth ? `Before you connect ${name}.` : `Connect ${name}?`}</h1>
+    <p className="intro-copy">{reauth ? <>First, confirm it’s you by signing in to <strong>{email}</strong> with a method already connected to your Inkspect account. Then you’ll connect your {name} account.</> : <>You’re signed in as <strong>{email}</strong>. Continue to {name} and choose the account with this same email address.</>}</p>
     {!reauth && <p className="delivery-note">This adds another way to sign in. Your workspace stays with this account.</p>}
     <button className="button primary" disabled={pending} aria-busy={pending} onClick={reauth ? signInAgain : connect}>
-      {pending ? <span className="spinner" /> : <ProviderIcon provider={provider} />}
-      {reauth ? "Sign in again" : `Confirm and connect ${name}`}
+      {pending ? <span className="spinner" /> : !reauth && <ProviderIcon provider={provider} />}
+      {reauth ? "Continue to sign in" : `Confirm and connect ${name}`}
     </button>
     <Notification tone={isAuthCancellation(error) ? "info" : "error"} message={error} notificationKey={errorNotificationKey} />
     {!reauth && <button className="button secondary email-submit" disabled={pending} onClick={signInAgain}>Use a different Inkspect account</button>}

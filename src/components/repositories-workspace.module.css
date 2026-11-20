@@ -14,7 +14,8 @@
 .repositoryList li { display: flex; align-items: center; margin-bottom: 3px; border-radius: 6px; border: 1px solid transparent; }
 .repositoryList li:hover { background: var(--dash-nav-hover); }
 .repositoryList li[data-selected="true"] { border-color: var(--dash-nav-border); background: var(--dash-nav-active); }
-.selectRepo { display: flex; align-items: flex-start; gap: 10px; width: 100%; min-width: 0; padding: 14px 9px; text-align: left; color: var(--dash-text); background: none; border: 0; }
+.selectRepo { display: flex; align-items: flex-start; gap: 10px; width: 100%; min-width: 0; padding: 14px 9px; text-align: left; color: var(--dash-text); background: none; border: 0; text-decoration: none; border-radius: 6px; }
+.selectRepo:focus-visible { outline: 2px solid var(--dash-accent); outline-offset: -2px; }
 .selectRepo > svg { color: var(--dash-muted); width: 15px; height: 15px; margin-top: 2px; flex-shrink: 0; }
 .selectRepo > span { display: grid; gap: 5px; min-width: 0; }
 .selectRepo strong { font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }

@@ -4,7 +4,7 @@ import { Notification } from "./notification-toast";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowUp, ArrowDown, ArrowUpDown, ArrowUpRight, RefreshCw, Search } from "lucide-react";
+import { ArrowUp, ArrowDown, ArrowUpDown, ArrowUpRight, GitPullRequest, RefreshCw, Search } from "lucide-react";
 import { productFetch } from "@inkspect/core/lib/api-client";
 import { reportBrowserError } from "@inkspect/core/lib/diagnostics/client";
 import type { FindingsOrder, FindingsResponse } from "@inkspect/core/lib/findings";
@@ -96,7 +96,7 @@ function FindingsList({ organizationId, connected, repositoryId, severity, statu
     const controller = new AbortController();
     const params = new URLSearchParams({ organizationId, action: "findings", repositoryId, severity, status, query, sort: order.sort, direction: order.direction });
     if (cursor) params.set("cursor", cursor);
-    // Send local midnight boundaries, so DST and the inclusive end day match the table.
+    // Send local midnight boundaries, so DST and the inclusive end day match the list.
     if (dateFrom) params.set("from", new Date(`${dateFrom}T00:00:00`).toISOString());
     if (dateTo) {
       const end = new Date(`${dateTo}T00:00:00`);
@@ -118,14 +118,12 @@ function FindingsList({ organizationId, connected, repositoryId, severity, statu
   const filtered = severity !== "all" || status !== "all" || !!query || !!dateFrom || !!dateTo;
   const goToPage = (next: (string | null)[]) => { setData(null); setError(""); setLoading(true); setCursors(next); };
   const sortDescription = order.sort === "date" ? (order.direction === "desc" ? "newest first" : "oldest first") : (order.direction === "desc" ? "highest severity first" : "lowest severity first");
-  const sortHeading = (column: FindingsOrder["sort"], label: string) => {
+  const sortButton = (column: FindingsOrder["sort"], label: string) => {
     const active = order.sort === column;
     const Icon = active ? (order.direction === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
     const nextAscending = active && order.direction === "desc";
     const action = column === "date" ? (nextAscending ? "Sort oldest first" : "Sort newest first") : (nextAscending ? "Sort lowest severity first" : "Sort highest severity first");
-    return <th scope="col" aria-sort={active ? (order.direction === "asc" ? "ascending" : "descending") : "none"}>
-      <button type="button" className={styles.sortButton} onClick={() => onSort(column)} title={action} aria-label={`${label}: ${action.toLowerCase()}`}>{label}<Icon size={14} aria-hidden="true" /></button>
-    </th>;
+    return <button type="button" className={styles.sortButton} aria-pressed={active} onClick={() => onSort(column)} title={action} aria-label={`${label}: ${action.toLowerCase()}`}>{label}<Icon size={14} aria-hidden="true" /></button>;
   };
 
   return <section className={styles.panel} aria-label="Findings" aria-busy={loading}>
@@ -134,23 +132,27 @@ function FindingsList({ organizationId, connected, repositoryId, severity, statu
     </div>
     <Notification tone="error" message={error ? `${error}${data ? " Previously loaded findings are shown below." : " Use Refresh to try again."}` : ""} />
     <Notification tone="info" message={data && (data.unavailableRepositories > 0 || data.unavailableReports > 0) ? `Some findings could not be loaded (${data.unavailableRepositories} repositories, ${data.unavailableReports} reports). Showing available findings.` : ""} />
+    <div className={styles.sortControls} role="group" aria-label="Sort findings">
+      <span>Sort by</span>{sortButton("date", "Review date")}{sortButton("severity", "Severity")}
+      <span className="sr-only" role="status">{sortDescription}</span>
+    </div>
     {loading && !data && <p className={styles.empty} role="status">Loading findings…</p>}
     {data && findings.length === 0 && <div className={styles.empty} role="status"><h2>{data.unavailableRepositories || data.unavailableReports ? "No findings in the available reports" : filtered ? "No matching findings" : "No findings on this page"}</h2><p>{filtered ? "Try another search, widen the date range, or clear the filters." : "Findings appear here after a review completes. Refresh to load the latest results."}</p><Link href="/dashboard?view=reviews">Open reviews</Link></div>}
-    {findings.length > 0 && <div className={styles.tableScroll}><table className={styles.table}>
-      <caption className="sr-only">Findings. Select a finding to open its review.</caption>
-      <thead><tr>{sortHeading("severity", "Severity")}<th scope="col">Finding</th><th scope="col">Status</th><th scope="col">Repository / PR</th>{sortHeading("date", "Review date")}<th scope="col"><span className="sr-only">Open review</span></th></tr></thead>
-      <tbody>{findings.map((finding, index) => {
+    {findings.length > 0 && <ul className={styles.cards} aria-label="Finding results">
+      {findings.map((finding, index) => {
         const date = new Date(finding.createdAt);
-        return <tr key={`${finding.repositoryId}:${finding.jobId}:${finding.id}:${index}`} data-finding-status={finding.resolution?.status}>
-          <td><span className={styles.severity} data-severity={finding.severity}>{finding.severity}</span>{finding.advisory && <small className={styles.advisory}>Advisory</small>}</td>
-          <td className={styles.finding}><Link prefetch={false} href={`/dashboard?${new URLSearchParams({ view: "reviews", repositoryId: String(finding.repositoryId), jobId: finding.jobId })}`} className={styles.findingLink}>{finding.title}</Link><span className={styles.location}>{finding.path}{finding.line > 0 ? `:${finding.line}` : ""}</span></td>
-          <td><FindingStatusControl compact value={finding.resolution} organizationId={organizationId} repositoryId={finding.repositoryId} jobId={finding.jobId} ordinal={finding.ordinal} findingId={finding.id} title={finding.title} /></td>
-          <td><span className={styles.repository}>{finding.repository}</span><small>{finding.pullNumber ? `PR #${finding.pullNumber}` : "Review"}</small></td>
-          <td className={styles.date}>{Number.isFinite(date.getTime()) ? <time dateTime={finding.createdAt} title={date.toLocaleString()}>{date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}<small>{date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</small></time> : "—"}</td>
-          <td><ArrowUpRight size={16} aria-hidden="true" /></td>
-        </tr>;
-      })}</tbody>
-    </table></div>}
+        return <li className={styles.card} key={`${finding.repositoryId}:${finding.jobId}:${finding.id}:${index}`} data-finding-status={finding.resolution?.status}>
+          <div className={styles.cardHeader}>
+            <div className={styles.badges}><span className={styles.severity} data-severity={finding.severity}>{finding.severity}</span>{finding.advisory && <span className={styles.advisory}>Advisory</span>}</div>
+            <span className={styles.date}>{Number.isFinite(date.getTime()) ? <time dateTime={finding.createdAt} title={date.toLocaleString()}><span className="sr-only">Reviewed </span>{date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}<span>{date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</span></time> : "—"}</span>
+          </div>
+          <h3 className={styles.finding}><Link prefetch={false} href={`/dashboard?${new URLSearchParams({ view: "reviews", repositoryId: String(finding.repositoryId), jobId: finding.jobId })}`} className={styles.findingLink}><span>{finding.title}</span><ArrowUpRight size={16} aria-hidden="true" /></Link></h3>
+          <span className={styles.location}>{finding.path}{finding.line > 0 ? `:${finding.line}` : ""}</span>
+          <div className={styles.context}><span className={styles.repository}>{finding.repository}</span><span className={styles.pullRequest}><GitPullRequest size={14} aria-hidden="true" />{finding.pullNumber ? `PR #${finding.pullNumber}` : "Review"}</span></div>
+          {finding.resolution && <div className={styles.cardFooter}><FindingStatusControl inline value={finding.resolution} organizationId={organizationId} repositoryId={finding.repositoryId} jobId={finding.jobId} ordinal={finding.ordinal} findingId={finding.id} title={finding.title} /></div>}
+        </li>;
+      })}
+    </ul>}
     {(data || cursors.length > 1) && <nav className={styles.pagination} aria-label="Findings pages">
       <span aria-live="polite">Page {cursors.length}{data ? ` · ${data.total.toLocaleString()} matching findings` : ""}</span>
       <div><button type="button" disabled={loading || cursors.length === 1} onClick={() => goToPage(cursors.slice(0, -1))}>Previous</button>

@@ -17,8 +17,8 @@ import styles from "./dashboard-overview.module.css";
 
 const dayFormat = new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: "UTC" });
 const monthFormat = new Intl.DateTimeFormat("en", { month: "short", timeZone: "UTC" });
-const dateFormat = new Intl.DateTimeFormat("en", { month: "short", day: "numeric" });
-const timeFormat = new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit" });
+const dateFormat = new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: "UTC" });
+const timeFormat = new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit", timeZone: "UTC" });
 const severityLabels: Record<OverviewSeverity, string> = { critical: "Critical", high: "High", medium: "Medium", low: "Low" };
 const decisions: Record<OverviewDecision, { label: string; detail: string; tone: string }> = {
   needs_changes: { label: "Needs changes", detail: "Inkspect found issues to fix before this pull request is merged.", tone: "attention" },
@@ -29,20 +29,24 @@ const decisions: Record<OverviewDecision, { label: string; detail: string; tone:
 const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
 const reviewHref = (review: OverviewReview) => `/dashboard?${new URLSearchParams({ view: "reviews", repositoryId: String(review.repositoryId), jobId: review.id })}`;
 const reviewName = (review: OverviewReview) => `${review.repository}${review.number ? ` #${review.number}` : ""}`;
-const when = (value: string) => Number.isNaN(Date.parse(value)) ? "" : `${dateFormat.format(new Date(value))} at ${timeFormat.format(new Date(value))}`;
+const when = (value: string) => Number.isNaN(Date.parse(value)) ? "" : `${dateFormat.format(new Date(value))} at ${timeFormat.format(new Date(value))} UTC`;
+
+export type InitialReviewOverview = ReviewOverview & { realtime_channel?: string };
 
 type OverviewState = { status: "loading" } | { status: "ready"; overview: ReviewOverview } | { status: "unavailable" };
 
-function useReviewOverview(organizationId: string | undefined) {
-  const [state, setState] = useState<OverviewState>({ status: "loading" });
+function useReviewOverview(organizationId: string | undefined, initialOverview?: InitialReviewOverview) {
+  const [state, setState] = useState<OverviewState>(() => initialOverview ? { status: "ready", overview: initialOverview } : { status: "loading" });
   const [revision, setRevision] = useState(0);
-  const [channel, setChannel] = useState("");
+  const [channel, setChannel] = useState(initialOverview?.realtime_channel ?? "");
   useEffect(() => {
     if (!organizationId) return;
     return subscribeFindingStatusChanges(organizationId, () => setRevision(value => value + 1));
   }, [organizationId]);
   useEffect(() => {
     if (!organizationId) return;
+    // A snapshot without a channel still needs subscription metadata.
+    if (initialOverview?.realtime_channel && revision === 0) return;
     const controller = new AbortController();
     productFetch(`/api/reviews?${new URLSearchParams({ organizationId, action: "overview" })}`, { cache: "no-store", signal: controller.signal }).then(async (response) => {
       const value = await response.json();
@@ -57,7 +61,7 @@ function useReviewOverview(organizationId: string | undefined) {
       setState((current) => current.status === "ready" ? current : { status: "unavailable" });
     });
     return () => controller.abort();
-  }, [organizationId, revision]);
+  }, [organizationId, revision, initialOverview]);
   useEffect(() => {
     if (!channel || !organizationId) return;
     let debounce: ReturnType<typeof setTimeout>;
@@ -67,8 +71,14 @@ function useReviewOverview(organizationId: string | undefined) {
   return organizationId ? state : { status: "unavailable" as const };
 }
 
-export function DashboardOverview({ summary, github, organizationId }: { summary: DashboardSummary; github?: WorkspaceStatus; organizationId?: string }) {
-  const state = useReviewOverview(organizationId);
+type DashboardOverviewProps = { summary: DashboardSummary; github?: WorkspaceStatus; organizationId?: string; initialOverview?: InitialReviewOverview };
+
+export function DashboardOverview(props: DashboardOverviewProps) {
+  return <LoadedDashboardOverview key={JSON.stringify([props.organizationId, props.initialOverview?.asOf])} {...props} />;
+}
+
+function LoadedDashboardOverview({ summary, github, organizationId, initialOverview }: DashboardOverviewProps) {
+  const state = useReviewOverview(organizationId, initialOverview);
   const overview = state.status === "ready" && state.overview.totals.reviews > 0 ? state.overview : null;
   return <DashboardOverviewView organizationId={organizationId} summary={summary} github={github} overview={overview} loading={state.status === "loading"} unavailable={state.status === "unavailable"} />;
 }
@@ -105,9 +115,11 @@ export function DashboardOverviewView({ organizationId, summary, github, overvie
         <section className={`${shared.panel} ${styles.repositoryPanel}`} aria-labelledby="connected-repositories-heading">
           <div className={styles.panelHeading}><div><h2 id="connected-repositories-heading">Your repositories <span className={styles.count}>{repositories.length}</span></h2><p>The code connected to this workspace.</p></div><Link className={styles.textLink} href="/dashboard?view=repositories">View all<DashboardIcon name="arrow" /></Link></div>
           {hasRepositories ? <ul className={styles.repositories}>{repositories.slice(0, 6).map((repo) => <li key={repo.id}>
+            <Link className={styles.repoLink} href={`/dashboard?${new URLSearchParams({ view: "repositories", repositoryId: String(repo.id) })}`}>
             <span className={styles.repoIcon}><DashboardIcon name="repositories" /></span>
             <span className={styles.repoName}><strong>{repo.fullName}</strong><small>GitHub repository</small></span>
             <span className={styles.visibility}>{repo.private ? <><DashboardIcon name="lock" />Private</> : "Public"}</span>
+            </Link>
           </li>)}</ul> : <div className={styles.repositoryEmpty}><DashboardIcon name="repositories" /><h3>No repositories connected</h3><p>Once GitHub is connected, the repositories you select will appear here.</p></div>}
           <div className={styles.repositoryFooter}><span>{connections.length} GitHub {connections.length === 1 ? "account" : "accounts"} connected{repositories.length > 6 ? `, ${repositories.length - 6} more repositories` : ""}</span><Link href="/dashboard?view=integrations">Manage connections</Link></div>
         </section>
@@ -281,7 +293,7 @@ function RecentReviews({ reviews, organizationId, repositories }: { reviews: Ove
         <span className={styles.recentName}>
           <strong>{reviewName(review)}</strong>
           <ReviewPullTitle title={review.title} number={review.number} repositoryId={review.repositoryId}
-            organizationId={repositories.some(repo => repo.id === review.repositoryId) ? organizationId : undefined} className={styles.recentTitle} />
+            organizationId={repositories.some(repo => repo.id === review.repositoryId) ? organizationId : undefined} fallback={"\u00a0"} className={styles.recentTitle} />
           <small>{when(review.createdAt)}</small>
         </span>
         <span className={styles.recentFindings}>{review.findings === null ? "" : review.findingStates?.resolved ? `${review.findingStates.resolved} resolved${review.findingStates.notDetected ? ` · ${review.findingStates.notDetected} not detected` : ""}` : review.findingStates?.notDetected ? `${review.findingStates.notDetected} not detected in latest review` : review.findingStates?.historical ? plural(review.findingStates.historical, "earlier finding") : review.findings ? plural(review.findings, "finding") : "No findings"}</span>

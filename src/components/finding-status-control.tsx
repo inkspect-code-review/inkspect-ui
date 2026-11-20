@@ -9,7 +9,7 @@ import { findingStatusLabels, type FindingStatusInfo } from "@inkspect/core/lib/
 import { announceFindingStatusChange } from "@inkspect/core/lib/finding-status-events";
 import styles from "./finding-status-control.module.css";
 
-export function FindingStatusControl({ value, organizationId, repositoryId, jobId, ordinal, findingId, title, compact = false }: { value?: FindingStatusInfo; organizationId?: string; repositoryId: number; jobId: string; ordinal: number; findingId: string; title: string; compact?: boolean }) {
+export function FindingStatusControl({ value, organizationId, repositoryId, jobId, ordinal, findingId, title, compact = false, inline = false }: { value?: FindingStatusInfo; organizationId?: string; repositoryId: number; jobId: string; ordinal: number; findingId: string; title: string; compact?: boolean; inline?: boolean }) {
   const [updated, setUpdated] = useState<{ original: FindingStatusInfo | undefined; value: FindingStatusInfo } | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError, errorNotificationKey] = useNotificationMessage("");
@@ -31,9 +31,9 @@ export function FindingStatusControl({ value, organizationId, repositoryId, jobI
     } catch (error) { setError(error instanceof Error ? error.message : "Could not update the finding."); }
     finally { setPending(false); }
   }
-  return <div className={styles.control} data-compact={compact || undefined}>
+  return <div className={styles.control} data-compact={compact || undefined} data-inline={inline || undefined}>
     <span className={styles.status} data-status={info.status} title={explanation}>{findingStatusLabels[info.status]}</span>
-    {compact ? <div className={styles.metadata}>{manual ? <span>{explanation}{date && <> · <time dateTime={info.at}>{date}</time></>}</span> : reference}</div> : <>
+    {compact || inline ? <div className={styles.metadata}>{manual ? <span>{explanation}{date && <> · <time dateTime={info.at}>{date}</time></>}</span> : reference}</div> : <>
       {(manual || info.source === "verified_fix") && <small>{explanation}{info.commit ? ` · ${info.commit.slice(0, 7)}` : ""}</small>}
       {date && <small><time dateTime={info.at}>{date}</time></small>}
       {reference}

@@ -34,7 +34,11 @@
 .textLink svg { flex-shrink: 0; width: 14px; height: 14px; }
 .panelHeading > a { flex-shrink: 0; }
 .repositories { list-style: none; padding: 0; margin: 0; }
-.repositories li { display: flex; align-items: center; gap: 14px; margin-inline: 26px; padding: 19px 0; border-top: 1px solid var(--dash-border); }
+.repositories li { margin-inline: 26px; border-top: 1px solid var(--dash-border); }
+.repoLink { display: flex; align-items: center; gap: 14px; padding: 19px 0; color: inherit; text-decoration: none; border-radius: 6px; }
+.repoLink:hover { background: var(--dash-panel); }
+.repoLink:hover .repoName strong { text-decoration: underline; }
+.repoLink:focus-visible { outline: 2px solid var(--dash-accent); outline-offset: 2px; }
 .repoIcon { display: grid; place-items: center; width: 36px; height: 40px; flex-shrink: 0; color: var(--dash-muted); background: var(--dash-panel); border-radius: 8px; }
 .repoName { display: grid; gap: 4px; min-width: 0; flex: 1; }
 .repoName strong { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
@@ -214,6 +218,7 @@
   .knowledge { padding-top: 24px; border-top: 1px solid var(--dash-border); }
   .panelHeading { padding: 22px 18px; flex-wrap: wrap; }
   .repositories li, .recent li { margin-inline: 18px; gap: 10px; }
+  .repoLink { gap: 10px; }
   .repositoryFooter { padding-inline: 18px; }
   .visibility svg { display: none; }
   .metrics { gap: 12px; }
