@@ -6,6 +6,7 @@ import { ReviewCostView } from "@inkspect/ui/components/review-cost";
 import { ReviewDiagram, ReviewReportView } from "@inkspect/ui/components/review-report";
 import type { ReportResponse } from "@inkspect/core/lib/review-types";
 import { allFindingFixPrompts, findingFixPrompt } from "@inkspect/core/lib/review-prompts";
+import { reviewSarif, downloadReviewSarif } from "../../../src/components/review-sarif";
 
 function fixture(): ReportResponse {
   const revision = { repository_id: "1", revision_id: "a".repeat(40) };
@@ -23,6 +24,70 @@ function fixture(): ReportResponse {
     },
   };
 }
+
+test("SARIF download contains the recorded locations and coverage and keeps alert IDs across revisions", () => {
+  const { report } = fixture();
+  const finding = report.findings[0];
+  finding.location.path = "src/çağrı #1%?.ts";
+  report.findings.push({ ...finding, id: "F2", severity: "P3", location: { ...finding.location, start_line: 1, end_line: 1 } });
+  const sarif = reviewSarif(report);
+  const run = sarif.runs[0];
+  assert.equal(sarif.version, "2.1.0");
+  assert.equal(run.results.length, 2);
+  assert.equal(run.invocations[0].executionSuccessful, false);
+  assert.equal(run.properties.excludedFiles, 2);
+  assert.equal(run.properties.revision, report.run.target.revision_id);
+  assert.deepEqual(run.results.map(r => r.level), ["note", "error"]);
+  const result = run.results[1];
+  assert.equal(result.ruleId, run.tool.driver.rules[0].id);
+  assert.deepEqual(result.locations[0].physicalLocation, {
+    artifactLocation: { uri: "src/%C3%A7a%C4%9Fr%C4%B1%20%231%25%3F.ts", uriBaseId: "%SRCROOT%" },
+    region: { startLine: 12, endLine: 14 },
+  });
+  assert.match(result.message.text, /Include the boundary/);
+  assert.notDeepEqual(result.partialFingerprints, run.results[0].partialFingerprints);
+  const previous = run.results.map(r => r.partialFingerprints);
+  finding.id = "different-run-id";
+  finding.title = " Include   the Boundary ";
+  finding.severity = "medium";
+  finding.location.start_line += 5;
+  finding.location.end_line += 5;
+  report.findings.reverse();
+  report.run.target = { ...report.run.target, revision_id: "b".repeat(40) };
+  const next = reviewSarif(report).runs[0];
+  assert.deepEqual(next.results.map(r => r.partialFingerprints), previous);
+  assert.equal(next.results[1].level, "warning");
+  assert.doesNotMatch(JSON.stringify(next), /bedrock|Test perfect squares|private-provider/);
+});
+
+test("the overview downloads an empty, completed SARIF report as a local file", async () => {
+  const value = fixture();
+  value.report.findings = [];
+  value.report.run.coverage_complete = true;
+  const html = renderToStaticMarkup(<ReviewReportView value={value} />);
+  assert.match(html, /<button type="button">Download SARIF<\/button>/);
+  const link = { href: "", download: "", click() { clicked = true; } };
+  let clicked = false;
+  const previous = Object.getOwnPropertyDescriptor(globalThis, "document");
+  Object.defineProperty(globalThis, "document", { configurable: true, value: {
+    createElement(tag: string) { assert.equal(tag, "a"); return link; },
+  } });
+  try {
+    downloadReviewSarif(value.report);
+    assert.ok(clicked);
+    assert.match(link.href, /^blob:/);
+    assert.equal(link.download, `inkspect-${value.report.run.target.revision_id}.sarif`);
+    const response = await fetch(link.href);
+    assert.equal(response.headers.get("content-type"), "application/sarif+json");
+    const [run] = (await response.json()).runs;
+    assert.equal(run.invocations[0].executionSuccessful, true);
+    assert.deepEqual(run.results, []);
+  } finally {
+    if (previous) Object.defineProperty(globalThis, "document", previous);
+    else Reflect.deleteProperty(globalThis, "document");
+    URL.revokeObjectURL(link.href);
+  }
+});
 
 test("structured reports work without Markdown and preserve important review information", () => {
   const html = renderToStaticMarkup(<ReviewReportView value={fixture()} />);

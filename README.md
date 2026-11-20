@@ -16,6 +16,15 @@ Use the main `inkspect` repository to assemble compatible self-hosted releases. 
 
 Source code is licensed under [MIT](LICENSE). Third-party dependencies retain their own licenses.
 
+## Download review findings
+
+Open a completed review in **Dashboard → Reviews → Overview** and select **Download SARIF**.
+The browser creates a SARIF 2.1.0 file for the recorded revision, including reviews
+with zero findings. The file records incomplete coverage and excluded file counts.
+Paths are relative to the repository root. Repeated findings are matched using the
+path, normalized title and occurrence in source order. Renaming the file or rewording
+the title can change the fingerprint. The download stays local to your browser.
+
 ## Ignored pull request authors
 
 Use **Settings → Workspace → Automatic reviews → GitHub check failure threshold** to select the lowest severity that fails a new PR check. The default is P0 (critical).
