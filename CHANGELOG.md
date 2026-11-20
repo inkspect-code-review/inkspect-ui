@@ -8,6 +8,10 @@ as appropriate. The package's `0.1.0` version is not a claim of a tagged release
 
 ### 2026-11-20
 
+#### Added
+
+- Download recorded review findings as SARIF 2.1.0 from the dashboard.
+
 #### Fixed
 
 - Fetch the realtime channel when the initial dashboard overview omits it so later review events refresh the page.

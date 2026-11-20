@@ -8,6 +8,7 @@ import type { ReportResponse, ReviewReport, ReviewScore } from "@inkspect/core/l
 import { allFindingFixPrompts, findingFixPrompt } from "@inkspect/core/lib/review-prompts";
 import styles from "./reviews.module.css";
 import { FindingStatusControl } from "./finding-status-control";
+import { downloadReviewSarif } from "./review-sarif";
 
 function CopyPromptButton({ value, label = "Copy", ariaLabel, className, successMessage = "Fix prompt copied to clipboard.", onFailure, onSuccess }: { value: string; label?: string; ariaLabel: string; className?: string; successMessage?: string; onFailure: () => void; onSuccess?: () => void }) {
   const [status, setStatus] = useState<"idle" | "copying" | "copied" | "failed">("idle");
@@ -148,7 +149,10 @@ export function ReviewReportView({ value, details, fix, organizationId }: { valu
       </Tabs.List>
       <Tabs.Content className={styles.tabPanel} value="overview" forceMount hidden={tab !== "overview"}>
     <section className={styles.overview} aria-labelledby="review-decision">
-      <div className={styles.decision} data-decision={r.decision}><span aria-hidden="true" /><h2 id="review-decision">{decisions[r.decision]}</h2></div>
+      <div className={styles.sectionHeading}>
+        <div className={styles.decision} data-decision={r.decision}><span aria-hidden="true" /><h2 id="review-decision">{decisions[r.decision]}</h2></div>
+        <button type="button" onClick={() => downloadReviewSarif(r)}>Download SARIF</button>
+      </div>
       <p className={styles.reviewSummary}>{r.summary}</p>
       {r.change_alignment && <div className={styles.alignment}><h3>PR intent <span>{alignmentLabels[r.change_alignment.level] || r.change_alignment.level.replaceAll("_", " ")}</span></h3><p>{r.change_alignment.rationale}</p></div>}
     </section>
