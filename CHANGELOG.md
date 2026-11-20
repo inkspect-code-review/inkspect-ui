@@ -6,6 +6,12 @@ as appropriate. The package's `0.1.0` version is not a claim of a tagged release
 
 ## Unreleased
 
+### 2026-11-20
+
+#### Fixed
+
+- Fetch the realtime channel when the initial dashboard overview omits it so later review events refresh the page.
+
 ### 2026-11-18
 
 #### Fixed

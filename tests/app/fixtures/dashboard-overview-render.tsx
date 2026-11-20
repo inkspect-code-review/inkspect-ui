@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { act } from "react";
+import { createRoot } from "react-dom/client";
+import { parseHTML } from "linkedom";
 import { renderToStaticMarkup } from "react-dom/server";
 import { buildOverview } from "@inkspect/core/lib/review-overview";
 import { DashboardOverview, type InitialReviewOverview } from "../../../src/components/dashboard-overview";
@@ -64,4 +67,44 @@ test("server and browser time zones cannot change initial timestamps", () => {
     if (previous === undefined) delete process.env.TZ;
     else process.env.TZ = previous;
   }
+});
+
+test("a channel-less snapshot bootstraps a subscription and refreshes on a review event", async t => {
+  const { window, document } = parseHTML("<html><body><div id='dashboard'></div></body></html>");
+  const globals = { window, document, IS_REACT_ACT_ENVIRONMENT: true };
+  for (const [name, value] of Object.entries(globals)) {
+    const original = Object.getOwnPropertyDescriptor(globalThis, name);
+    Object.defineProperty(globalThis, name, { configurable: true, value });
+    t.after(() => original ? Object.defineProperty(globalThis, name, original) : Reflect.deleteProperty(globalThis, name));
+  }
+  const previousKey = process.env.NEXT_PUBLIC_PUBB_APP_KEY;
+  process.env.NEXT_PUBLIC_PUBB_APP_KEY = "dashboard-test";
+  t.after(() => {
+    if (previousKey === undefined) delete process.env.NEXT_PUBLIC_PUBB_APP_KEY;
+    else process.env.NEXT_PUBLIC_PUBB_APP_KEY = previousKey;
+  });
+  const sockets: TestSocket[] = [];
+  class TestSocket {
+    onmessage?: (event: { data: string }) => void;
+    constructor() { sockets.push(this); }
+    close() {}
+  }
+  t.mock.method(globalThis, "WebSocket", TestSocket);
+  const fetchOverview = t.mock.method(globalThis, "fetch", async (url: string) => {
+    assert.match(url, /action=overview/);
+    return Response.json({ ...empty, realtime_channel: "channel" });
+  });
+  const root = createRoot(document.getElementById("dashboard")!);
+  try {
+    await act(async () => root.render(<DashboardOverview organizationId="workspace-one" summary={summary} initialOverview={empty} />));
+    assert.equal(fetchOverview.mock.callCount(), 1);
+    const [socket] = sockets;
+    assert.ok(socket?.onmessage);
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+    await act(async () => {
+      socket.onmessage!({ data: JSON.stringify({ channel: "channel", data: JSON.stringify({ name: "review.changed" }) }) });
+      t.mock.timers.tick(1500);
+    });
+    assert.equal(fetchOverview.mock.callCount(), 2);
+  } finally { await act(async () => root.unmount()); }
 });

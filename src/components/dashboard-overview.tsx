@@ -45,9 +45,8 @@ function useReviewOverview(organizationId: string | undefined, initialOverview?:
   }, [organizationId]);
   useEffect(() => {
     if (!organizationId) return;
-    // The server snapshot already supplies the first render. Refresh only when
-    // finding changes or realtime events invalidate it.
-    if (initialOverview && revision === 0) return;
+    // A snapshot without a channel still needs subscription metadata.
+    if (initialOverview?.realtime_channel && revision === 0) return;
     const controller = new AbortController();
     productFetch(`/api/reviews?${new URLSearchParams({ organizationId, action: "overview" })}`, { cache: "no-store", signal: controller.signal }).then(async (response) => {
       const value = await response.json();
