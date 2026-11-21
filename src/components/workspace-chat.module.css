@@ -10,7 +10,8 @@
   .launcher[data-compact="true"] { justify-content: center; padding-inline: 0; }
   .launcher[data-compact="true"] .launcherLabel, .launcher[data-compact="true"] .launcherAction { display: none; }
 }
-.window { position: fixed; z-index: 60; right: 24px; bottom: 24px; display: flex; flex-direction: column; width: min(480px, calc(100vw - 48px)); height: min(690px, calc(100svh - 48px)); min-height: 0; border: 1px solid var(--dash-strong-border); border-radius: 12px; background: var(--dash-card); color: var(--dash-text); color-scheme: var(--dash-scheme); box-shadow: 0 20px 80px var(--dash-dialog-shadow), 0 4px 18px var(--dash-shadow); overflow: hidden; }
+/* Keep the chat above page content and below portaled navigation menus. */
+.window { position: fixed; z-index: 40; right: 24px; bottom: 24px; display: flex; flex-direction: column; width: min(480px, calc(100vw - 48px)); height: min(690px, calc(100svh - 48px)); min-height: 0; border: 1px solid var(--dash-strong-border); border-radius: 12px; background: var(--dash-card); color: var(--dash-text); color-scheme: var(--dash-scheme); box-shadow: 0 20px 80px var(--dash-dialog-shadow), 0 4px 18px var(--dash-shadow); overflow: hidden; }
 .window[hidden] { display: none; }
 .window { font-size: 13px; line-height: 1.6; }
 .window button:disabled { opacity: .5; cursor: default; }
@@ -138,3 +139,17 @@
   .conversationBar > span { flex-basis: 100%; }
   .composer textarea { font-size: 16px; resize: none; }
 }
+
+.markdown a[data-chat-task] {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--dash-border);
+  border-radius: 6px;
+  background: var(--dash-secondary);
+  color: var(--dash-text);
+  font-size: 12px;
+  text-decoration: none;
+}
+.markdown a[data-chat-task]:hover { border-color: var(--dash-accent); }

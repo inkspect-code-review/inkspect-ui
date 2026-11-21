@@ -2,7 +2,7 @@
 
 import { ConfirmationDialog } from "./confirmation-dialog";
 
-import { Notification } from "./notification-toast";
+import { Notification, useNotifications } from "./notification-toast";
 import { chatProgressLabels, type ChatProgress } from "@inkspect/core/lib/chat-progress";
 import { consumeChatStream } from "@inkspect/core/lib/chat-stream";
 import { productFetch } from "@inkspect/core/lib/api-client";
@@ -13,7 +13,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import type { Repository } from "@inkspect/core/lib/github";
 import type { ChatConversation, ChatDetail } from "@inkspect/core/lib/workspace-chat";
 import { DashboardIcon } from "./dashboard-icon";
-import { ChatMarkdown } from "./chat-markdown";
+import { ChatMarkdown, ChatCopyButton } from "./chat-markdown";
 import { ChatRepositoryPicker } from "./chat-repository-picker";
 import { ChatIndexAction } from "./chat-index-action";
 import { ChatSources } from "./chat-sources";
@@ -32,6 +32,7 @@ type Props = { scopeKey: string; panelId: string; organizationId: string; organi
 export function WorkspaceChat({ scopeKey, panelId, organizationId, organizationName, repositories }: Props) {
   const [window, setWindow] = useChatWindow(scopeKey);
   const { panel: panelRef, style: frameStyle, interacting, handlers: frameHandlers, mobile } = useChatWindowFrame(window.frame, window.expanded, window.open, setWindow);
+  const { notify } = useNotifications();
   const [detail, setDetail] = useState<ChatDetail | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyView, setHistoryView] = useState<"mine" | "team">("mine");
@@ -219,7 +220,9 @@ export function WorkspaceChat({ scopeKey, panelId, organizationId, organizationN
       <div className={styles.messages} ref={conversation} aria-busy={loading}>
         {!window.conversationId && <div className={styles.welcome}><div className={styles.welcomeMark}><Image className={styles.mark} src="/brand/inkspect-symbol-white.svg" alt="" width={32} height={40} /></div><h3>Your code, in conversation.</h3><p>Ask across your workspace or focus on one repository.</p><div className={styles.prompts}>{["How are these repositories connected?", "Where is authentication handled?", "Explain the main architecture."].map((prompt) => <button type="button" key={prompt} onClick={() => { setWindow({ draft: prompt }); input.current?.focus(); }}>{prompt}<DashboardIcon name="arrow" /></button>)}</div></div>}
         {loading && !detail && <p className={styles.hint} role="status">Loading conversation…</p>}
-        <div role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions">{detail?.messages.map((message) => <article className={styles.message} data-role={message.role === "assistant" ? "assistant" : "user"} aria-label={message.role === "assistant" ? "AI response" : "User message"} key={message.id}>{message.role === "assistant" ? <ChatMarkdown content={message.content} className={styles.markdown} /> : <p>{message.content}</p>}{!!message.sources?.length && <ChatSources sources={message.sources} organizationId={organizationId} conversationId={detail.conversation.id} messageId={message.id} />}{detail.conversation.owner && message.role === "assistant" && message.actions?.map(action => <ChatIndexAction key={action.repositoryId} action={action} organizationId={organizationId} />)}</article>)}</div>
+        <div role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions">{detail?.messages.map((message) => <article className={styles.message} data-role={message.role === "assistant" ? "assistant" : "user"} aria-label={message.role === "assistant" ? "AI response" : "User message"} key={message.id}>{message.role === "assistant" ? <ChatMarkdown content={message.content} className={styles.markdown} taskContext={detail.conversation.owner && message.sources?.length ? { sources: message.sources, repositories } : undefined} /> : <p>{message.content}</p>}{!!message.sources?.length && <ChatSources sources={message.sources} organizationId={organizationId} conversationId={detail.conversation.id} messageId={message.id} />}{detail.conversation.owner && message.role === "assistant" && message.actions?.map(action => <ChatIndexAction key={action.repositoryId} action={action} organizationId={organizationId} />)}
+          {message.role === "assistant" && <ChatCopyButton content={message.content} className={styles.iconButton} notify={notify} />}
+        </article>)}</div>
         {pending && activity && !streamingText && <article className={styles.message} data-role="assistant"><div className={styles.activity} role="status" aria-live="polite" aria-atomic="true"><span className={styles.activityText}>{chatProgressLabels[activity]}</span></div></article>}
         {streamingText && <article className={styles.message} data-role="assistant" aria-label="AI is responding"><ChatMarkdown content={streamingText} className={styles.markdown} /></article>}
       </div>

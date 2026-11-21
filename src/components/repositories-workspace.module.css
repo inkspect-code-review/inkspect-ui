@@ -7,9 +7,10 @@
 .search { display: flex; align-items: center; gap: 8px; border: 1px solid var(--dash-input-border); border-radius: 6px; padding: 0 10px; background: var(--dash-input); color: var(--dash-muted); }
 .search svg { width: 15px; flex-shrink: 0; }
 .search input { width: 100%; min-width: 0; background: transparent; color: var(--dash-text); border: 0; padding: 10px 0; font: inherit; font-size: 12px; }
-.starFilter { display: flex; align-items: center; gap: 7px; justify-self: start; border: 1px solid transparent; padding: 5px 8px; border-radius: 5px; background: transparent; color: var(--dash-muted); font-size: 11px; }
-.starFilter[aria-pressed="true"] { background: var(--dash-nav-active); border-color: var(--dash-nav-border); color: var(--dash-nav-text); }
-.starFilter > span { margin-left: 5px; }
+.filterButtons { display: flex; align-items: center; gap: 4px; }
+.filterButton { display: flex; align-items: center; gap: 7px; justify-self: start; border: 1px solid transparent; padding: 5px 8px; border-radius: 5px; background: transparent; color: var(--dash-muted); font-size: 11px; }
+.filterButton[aria-pressed="true"] { background: var(--dash-nav-active); border-color: var(--dash-nav-border); color: var(--dash-nav-text); }
+.filterButton > span { margin-left: 5px; }
 .repositoryList { flex: 1; min-height: 0; overflow-y: auto; margin: 0; padding: 0 8px 12px; list-style: none; scrollbar-color: var(--dash-scrollbar) var(--dash-bg); }
 .repositoryList li { display: flex; align-items: center; margin-bottom: 3px; border-radius: 6px; border: 1px solid transparent; }
 .repositoryList li:hover { background: var(--dash-nav-hover); }
@@ -17,16 +18,20 @@
 .selectRepo { display: flex; align-items: flex-start; gap: 10px; width: 100%; min-width: 0; padding: 14px 9px; text-align: left; color: var(--dash-text); background: none; border: 0; text-decoration: none; border-radius: 6px; }
 .selectRepo:focus-visible { outline: 2px solid var(--dash-accent); outline-offset: -2px; }
 .selectRepo > svg { color: var(--dash-muted); width: 15px; height: 15px; margin-top: 2px; flex-shrink: 0; }
-.selectRepo > span { display: grid; gap: 5px; min-width: 0; }
+.selectRepo > span { display: grid; grid-template-columns: minmax(0, 1fr); gap: 5px; min-width: 0; }
 .selectRepo strong { font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
 .selectRepo small { font-size: 10px; color: var(--dash-muted); overflow-wrap: anywhere; }
-.selectRepo small span { margin-inline: 3px; opacity: .5; }
+.repoMeta { display: flex; align-items: baseline; gap: 4px; white-space: nowrap; }
+.owner { overflow: hidden; text-overflow: ellipsis; }
+.selectRepo .indexed { color: var(--dash-success-text); }
+.repoMeta .indexed { flex-shrink: 0; margin-left: 3px; }
 .star { display: grid; place-items: center; width: 32px; height: 32px; margin-right: 4px; flex-shrink: 0; color: var(--dash-muted); border: 0; background: transparent; border-radius: 5px; }
 .star[aria-pressed="true"] { color: var(--dash-accent); }
 .star:disabled { opacity: .4; }
 .filterActions { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 .manage { display: inline-flex; align-items: center; gap: 5px; padding: 5px 0; font-size: 10px; color: var(--dash-muted); white-space: nowrap; }
-.manage svg { width: 12px; height: 12px; }
+.manage { justify-content: center; min-width: 28px; min-height: 28px; }
+.manage svg { width: 16px; height: 16px; }
 .pagination { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-shrink: 0; padding: 12px 15px; border-top: 1px solid var(--dash-border); color: var(--dash-muted); font-size: 10px; }
 .pagination > div { display: flex; align-items: center; gap: 8px; }
 .pagination button { width: 28px; height: 28px; border: 1px solid var(--dash-border); border-radius: 5px; background: transparent; color: var(--dash-text); font-size: 20px; line-height: 1; }
@@ -100,13 +105,13 @@
 @media (max-width: 700px) { .workspace { grid-template-columns: minmax(0, 1fr); } .listPane { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--dash-border); } .repositoryList { flex: auto; max-height: 230px; overflow: auto; } .listHeading { padding-top: 20px; } .detail { padding: 26px 20px 48px; } .detailHeader { margin-bottom: 24px; } .manage { padding-block: 12px; } .logLine { gap: 9px; } }
 
 .eligibilityNotice { color: var(--dash-muted); font-size: 12px; line-height: 1.8; padding: 12px 0; }
-.partialNotice { border-left: 2px solid var(--dash-accent); margin: 18px 0; padding: 4px 16px; font-size: 12px; line-height: 1.8; }
-.partialNotice p { color: var(--dash-muted); margin: 4px 0 8px; }
-.partialNotice summary { cursor: pointer; }
-.partialNotice ul { list-style: none; padding: 0; max-height: 220px; overflow-y: auto; }
-.partialNotice li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--dash-border); padding: 6px 0; }
-.partialNotice code { overflow-wrap: anywhere; font-size: 11px; }
-.partialNotice li span { color: var(--dash-muted); font-size: 10px; }
+.skippedFiles { margin: 12px 0; color: var(--dash-muted); font-size: 12px; line-height: 1.8; }
+.skippedFiles p { color: var(--dash-muted); margin: 4px 0 8px; }
+.skippedFiles summary { cursor: pointer; }
+.skippedFiles ul { list-style: none; padding: 0; max-height: 220px; overflow-y: auto; }
+.skippedFiles li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--dash-border); padding: 6px 0; }
+.skippedFiles code { overflow-wrap: anywhere; font-size: 11px; }
+.skippedFiles li span { color: var(--dash-muted); font-size: 10px; }
 .ossNotice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 0; border-bottom: 1px solid var(--dash-border); }
 .ossNotice strong { font-size: 13px; font-weight: 600; }
 .ossNotice p { max-width: 60ch; margin: 6px 0 0; color: var(--dash-muted); font-size: 12px; line-height: 1.7; }

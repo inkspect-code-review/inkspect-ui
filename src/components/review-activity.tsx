@@ -6,6 +6,9 @@ import { useEffect, useRef, useState } from "react";
 import { activityLabel, mergeActivity, type ReviewActivityEvent } from "@inkspect/core/lib/review-activity";
 import styles from "./reviews.module.css";
 
+type TimelineRow = ReviewActivityEvent & { event: { detail?: string; time_unknown?: boolean } };
+const terminal = (row: TimelineRow) => ["review.completed", "review.failed", "review.cancelled"].includes(row.event.kind);
+
 type RequestActivity = (action: string, extra?: Record<string, string>, body?: object, signal?: AbortSignal) => Promise<{ events: ReviewActivityEvent[]; next_cursor: number; has_more: boolean }>;
 export function ReviewActivity({ jobId, revision, status, request }: { jobId: string; revision: number; status: string; request: RequestActivity }) {
   const running = status === "running";
@@ -42,13 +45,14 @@ export function ReviewActivity({ jobId, revision, status, request }: { jobId: st
   }, [jobId, request, running]);
   useEffect(() => { refresh.current?.(); }, [revision]);
   useEffect(() => { if (follow && viewport.current) viewport.current.scrollTop = viewport.current.scrollHeight; }, [rows, follow, milestones]);
-  const visible = milestones ? rows.filter((row) => !row.event.kind.startsWith("source.operation.")) : rows;
+  const filtered = milestones ? rows.filter(row => !row.event.kind.startsWith("source.operation.")) : rows;
+  const visible: TimelineRow[] = [...filtered.filter(row => !terminal(row)), ...filtered.filter(terminal)];
   return <section className={styles.activity} aria-label="Review activity">
     <header className={styles.activityHeader}><div><span className={styles.activityDot} data-running={running} /><h3>Activity</h3><span>{activityStatus}</span></div><div><button aria-pressed={milestones} onClick={() => setMilestones((v) => !v)}>{milestones ? "Milestones" : "All events"}</button><button aria-pressed={follow} onClick={() => setFollow((v) => !v)}>Follow live</button></div></header>
     <Notification tone="error" message={error} action={{ label: "Reconnect to review activity", onClick: () => refresh.current?.() }} />
     <div className={styles.activityScroll} ref={viewport} onScroll={() => { const box = viewport.current; if (box && box.scrollHeight - box.scrollTop - box.clientHeight > 60 && follow) setFollow(false); }}>
       {!visible.length && <p className={styles.activityEmpty}>{status === "queued" ? "Activity will appear when the worker starts." : status === "paused" ? "Waiting for the review to resume." : running ? "Waiting for activity from the worker…" : "No activity was recorded for this review."}</p>}
-      <ol>{visible.map((row) => <li key={row.sequence} data-failed={row.event.kind.endsWith(".failed")}><time dateTime={row.created_at}>{new Date(row.created_at).toLocaleTimeString([], { hour12: false })}</time><div><span>{activityLabel(row)}</span>{row.event.path && <code title={row.event.path}>{row.event.path}</code>}{row.event.code && <small>{row.event.code}</small>}{row.event.input_tokens !== undefined && <small>Input {row.event.input_tokens.toLocaleString()} · output {(row.event.output_tokens || 0).toLocaleString()} · cached {row.event.cached_input_tokens === undefined ? "unknown" : row.event.cached_input_tokens.toLocaleString()}</small>}</div><small>{row.event.duration_ms !== undefined ? `${(row.event.duration_ms / 1000).toFixed(1)}s` : row.event.output_tokens !== undefined ? `${row.event.output_tokens.toLocaleString()} tokens` : ""}</small></li>)}</ol>
+      <ol>{visible.map((row) => <li key={row.sequence} data-failed={row.event.kind.endsWith(".failed")}>{row.event.time_unknown ? <span title="Time was not recorded">—</span> : <time dateTime={row.created_at}>{new Date(row.created_at).toLocaleTimeString([], { hour12: false })}</time>}<div><span>{row.event.detail || activityLabel(row)}</span>{row.event.path && <code title={row.event.path}>{row.event.path}</code>}{row.event.code && <small>{row.event.code}</small>}{row.event.input_tokens !== undefined && <small>Input {row.event.input_tokens.toLocaleString()} · output {(row.event.output_tokens || 0).toLocaleString()} · cached {row.event.cached_input_tokens === undefined ? "unknown" : row.event.cached_input_tokens.toLocaleString()}</small>}</div><small>{row.event.duration_ms !== undefined ? `${(row.event.duration_ms / 1000).toFixed(1)}s` : row.event.output_tokens !== undefined ? `${row.event.output_tokens.toLocaleString()} tokens` : ""}</small></li>)}</ol>
     </div>
     <footer className={styles.activityFooter}><span>{rows.length} recorded events</span><span>{follow ? "Following latest activity" : "Scroll paused"}</span></footer>
   </section>;

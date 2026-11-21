@@ -6,6 +6,25 @@ as appropriate. The package's `0.1.0` version is not a claim of a tagged release
 
 ## Unreleased
 
+### 2026-11-21
+
+#### Added
+
+- Filter repositories by Indexed alongside Starred. Show all saved indexes as Indexed and count stars within the matching connected repositories.
+
+- Show recorded review steps and model calls in the activity timeline, including historical steps without individual timestamps.
+
+- Open a prefilled GitHub issue from an individual cited chat finding.
+- Add a copy action to each completed assistant response in workspace chat.
+
+#### Changed
+
+- Display findings in a compact list with quick review-date filters for the last 7, 15 or 30 days and a custom range.
+
+#### Fixed
+
+- Keep the sidebar account menu visible above the expanded Ask AI window.
+
 ### 2026-11-20
 
 #### Added

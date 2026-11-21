@@ -5,6 +5,7 @@ import { useDashboardEdition, useDashboardWidgets } from "./dashboard-edition";
 import { productFetch } from "@inkspect/core/lib/api-client";
 
 import Link from "next/link";
+import { CircleCheck, Settings2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { RepositoryEmptyState } from "./repository-empty-state";
 import { useEffect, useRef, useState } from "react";
@@ -13,6 +14,7 @@ import type { RepositoryIndex, RepositoryIndexEligibility, RepositoryIndexFreshn
 import { hasFileCounts, indexLogKey, mergeRepositoryIndex } from "@inkspect/core/lib/repository-activity";
 import { subscribeReviews, type LiveState } from "@inkspect/core/lib/review-realtime";
 import { DashboardIcon } from "./dashboard-icon";
+import { matchingRepositories, readIndexedIds, repositoryPage, starredRepositories } from "./repository-browser-filters";
 import shared from "./dashboard.module.css";
 import styles from "./repositories-workspace.module.css";
 
@@ -33,6 +35,7 @@ export function RepositoriesWorkspace({ organizationId, repositories, canManage 
   const [page, setPage] = useState(1);
   const repositoryList = useRef<HTMLUListElement>(null);
   const [onlyStars, setOnlyStars] = useState(false);
+  const [onlyIndexed, setOnlyIndexed] = useState(false);
   const selected = availableRepositories.find(repo => String(repo.id) === searchParams.get("repositoryId"))?.id ?? availableRepositories[0]?.id;
   const [stars, setStars] = useState<number[]>([]);
   const [pending, setPending] = useState<number[]>([]);
@@ -54,11 +57,49 @@ export function RepositoriesWorkspace({ organizationId, repositories, canManage 
     } catch (error) { setError(error instanceof Error ? error.message : "Could not save your star."); }
     finally { setPending(current => current.filter(value => value !== id)); }
   }
-  const visible = availableRepositories.filter(repo => repo.fullName.toLowerCase().includes(query.toLowerCase().trim()) && (!onlyStars || stars.includes(repo.id))).sort((a, b) => Number(stars.includes(b.id)) - Number(stars.includes(a.id)) || a.fullName.localeCompare(b.fullName));
-  const pages = Math.max(1, Math.ceil(visible.length / 20));
-  const currentPage = Math.min(page, pages);
-  const pageStart = (currentPage - 1) * 20;
-  const pageRepositories = visible.slice(pageStart, pageStart + 20);
+  const starIds = new Set(stars);
+  const matches = matchingRepositories(availableRepositories, query, starIds);
+  const matchingStars = starredRepositories(matches, starIds);
+  const candidates = onlyStars ? matchingStars : matches;
+  // An index filter must consider matches on every page. Otherwise only visible badges need refreshing.
+  const requestedIds = (onlyIndexed ? matches : repositoryPage(candidates, page).pageRepositories).map(repo => repo.id).sort((a, b) => a - b).join(",");
+  const [snapshot, setSnapshot] = useState<{ scope: string; indexed: Set<number> } | null>(null);
+  const [failedScope, setFailedScope] = useState<string | null>(null);
+  const [coverageAttempt, setCoverageAttempt] = useState(0);
+  useEffect(() => {
+    if (!requestedIds) return;
+    const controller = new AbortController();
+    let fetching = false;
+    async function refreshCoverage() {
+      if (fetching || document.hidden) return;
+      fetching = true;
+      try {
+        const indexed = await readIndexedIds(requestedIds.split(","), async batch => {
+          const response = await productFetch(`${endpoint(organizationId, "index-coverage")}&ids=${batch.join(",")}`, {
+            signal: controller.signal, cache: "no-store",
+          }).then(result);
+          return response.coverage;
+        }, controller.signal);
+        if (!controller.signal.aborted) {
+          setSnapshot({ scope: requestedIds, indexed });
+          setFailedScope(null);
+        }
+      } catch {
+        if (!controller.signal.aborted) setFailedScope(requestedIds);
+      } finally { fetching = false; }
+    }
+    void refreshCoverage();
+    const timer = setInterval(refreshCoverage, onlyIndexed && matches.length > 20 ? 60000 : 15000);
+    document.addEventListener("visibilitychange", refreshCoverage);
+    return () => { controller.abort(); clearInterval(timer); document.removeEventListener("visibilitychange", refreshCoverage); };
+  }, [organizationId, requestedIds, onlyIndexed, matches.length, coverageAttempt]);
+
+  const awaitingIndex = onlyIndexed && !!requestedIds && snapshot?.scope !== requestedIds;
+  const coverageError = onlyIndexed && failedScope === requestedIds;
+  const indexed = snapshot?.indexed;
+  const visible = onlyIndexed ? (awaitingIndex ? [] : candidates.filter(repo => indexed?.has(repo.id))) : candidates;
+  const starCount = onlyIndexed ? matchingStars.filter(repo => indexed?.has(repo.id)).length : matchingStars.length;
+  const { pages, currentPage, pageStart, pageRepositories } = repositoryPage(visible, page);
   const repo = availableRepositories.find(repo => repo.id === selected);
   function changePage(next: number) { setPage(next); if (repositoryList.current) repositoryList.current.scrollTop = 0; }
   return <div className={styles.workspace}>
@@ -66,17 +107,35 @@ export function RepositoriesWorkspace({ organizationId, repositories, canManage 
       <div className={styles.listHeading}><h1>Repositories</h1><span>{availableRepositories.length}</span></div>
       <div className={styles.filters}>
         <label className={styles.search}><DashboardIcon name="search" /><input aria-label="Search repositories" placeholder="Search repositories…" value={query} onChange={event => { setQuery(event.target.value); changePage(1); }} /></label>
-        <div className={styles.filterActions}><button className={styles.starFilter} aria-pressed={onlyStars} onClick={() => { setOnlyStars(value => !value); changePage(1); }}><Star filled={onlyStars} />Starred{stars.length > 0 && <span>{stars.length}</span>}</button>{canManage && <Link className={styles.manage} href="/dashboard?view=integrations">Manage integrations<DashboardIcon name="arrow" /></Link>}</div>
+        <div className={styles.filterActions}>
+          <div className={styles.filterButtons} role="group" aria-label="Repository filters">
+            <button type="button" className={styles.filterButton} aria-pressed={onlyStars} onClick={() => { setOnlyStars(value => !value); changePage(1); }}>
+              <Star filled={onlyStars} />Starred<span>{ready && !awaitingIndex ? starCount : "…"}</span>
+            </button>
+            <button type="button" className={styles.filterButton} aria-pressed={onlyIndexed} onClick={() => { setOnlyIndexed(value => !value); changePage(1); }}>
+              <CircleCheck size={15} aria-hidden="true" />Indexed
+            </button>
+          </div>
+          {canManage && <Link className={styles.manage} href="/dashboard?view=integrations" aria-label="Manage integrations" title="Manage integrations"><Settings2 size={16} aria-hidden="true" /></Link>}
+        </div>
       </div>
       <Notification tone="error" message={error} notificationKey={starAttempt} action={!ready ? { label: "Retry loading repositories", onClick: () => setStarAttempt(value => value + 1) } : undefined} />
-      <ul ref={repositoryList} className={styles.repositoryList}>
+      <Notification tone="error" message={coverageError ? "Repository index status could not be refreshed." : ""} notificationKey={coverageAttempt} action={{ label: "Retry", onClick: () => setCoverageAttempt(value => value + 1) }} />
+      <ul aria-busy={awaitingIndex && !coverageError} ref={repositoryList} className={styles.repositoryList}>
         {pageRepositories.map(repo => <li key={repo.id} data-selected={selected === repo.id}>
-          <Link className={styles.selectRepo} aria-current={selected === repo.id ? "true" : undefined} href={`/dashboard?${new URLSearchParams({ ...Object.fromEntries(searchParams), view: "repositories", repositoryId: String(repo.id) })}`} scroll={false}><DashboardIcon name="repositories" /><span><strong>{repo.fullName.split("/").slice(1).join("/") || repo.fullName}</strong><small>{repo.fullName.split("/")[0]} <span aria-hidden="true">/</span> {repo.private ? "Private" : "Public"}</small></span></Link>
+          <Link className={styles.selectRepo} aria-current={selected === repo.id ? "true" : undefined} href={`/dashboard?${new URLSearchParams({ ...Object.fromEntries(searchParams), view: "repositories", repositoryId: String(repo.id) })}`} scroll={false}>
+            {indexed?.has(repo.id) ? <CircleCheck className={styles.indexed} aria-hidden="true" /> : <DashboardIcon name="repositories" />}
+            <span><strong>{repo.fullName.split("/").slice(1).join("/") || repo.fullName}</strong>
+              <small className={styles.repoMeta}><span className={styles.owner} title={repo.fullName}>{repo.fullName.split("/")[0]}</span><span aria-hidden="true">/</span>{repo.private ? "Private" : "Public"}
+                {indexed?.has(repo.id) && <span className={styles.indexed}>Indexed</span>}
+              </small>
+            </span>
+          </Link>
           <button className={styles.star} aria-label={`${stars.includes(repo.id) ? "Unstar" : "Star"} ${repo.fullName}`} aria-pressed={stars.includes(repo.id)} disabled={!ready || pending.includes(repo.id)} onClick={() => void toggleStar(repo.id)}><Star filled={stars.includes(repo.id)} /></button>
         </li>)}
       </ul>
-      {!visible.length && <p className={styles.noResults}>{onlyStars ? "No starred repositories match your search." : "No repositories match your search."}</p>}
-      <nav className={styles.pagination} aria-label="Repository pages"><span aria-live="polite">{visible.length ? `${pageStart + 1}–${Math.min(pageStart + 20, visible.length)} of ${visible.length}` : "0 repositories"}</span><div><button aria-label="Previous repository page" disabled={currentPage === 1} onClick={() => changePage(currentPage - 1)}>‹</button><span>{currentPage} / {pages}</span><button aria-label="Next repository page" disabled={currentPage === pages} onClick={() => changePage(currentPage + 1)}>›</button></div></nav>
+      {!visible.length && <p className={styles.noResults} role="status">{awaitingIndex ? coverageError ? "Index status unavailable." : "Checking repository indexes…" : onlyStars && !ready ? "Loading starred repositories…" : onlyStars && onlyIndexed ? "No starred, indexed repositories match." : onlyIndexed ? "No indexed repositories match." : onlyStars ? "No starred repositories match." : "No repositories match your search."}</p>}
+      <nav className={styles.pagination} aria-label="Repository pages"><span aria-live="polite">{awaitingIndex ? "…" : visible.length ? `${pageStart + 1}–${pageStart + pageRepositories.length} of ${visible.length}` : "0 repositories"}</span><div><button aria-label="Previous repository page" disabled={currentPage === 1} onClick={() => changePage(currentPage - 1)}>‹</button><span>{currentPage} / {pages}</span><button aria-label="Next repository page" disabled={currentPage === pages} onClick={() => changePage(currentPage + 1)}>›</button></div></nav>
     </aside>
     {repo ? <RepositoryDetail key={`${organizationId}:${repo.id}`} organizationId={organizationId} repository={repo} onError={setToastError} /> : <div className={styles.emptyDetail}>Select a repository to see its details.</div>}
     <Notification tone="error" message={toastError} />
@@ -148,10 +207,9 @@ function RepositoryDetail({ organizationId, repository, onError }: { organizatio
   const max = scanning ? p?.scan.total || 0 : p?.chunks || 0;
   const value = scanning ? p?.scan.processed || 0 : (p?.embedded || 0) + (p?.reused || 0);
   const partial = !!p?.indexed && (!!p.partial || (p.skipped ?? p.scan.skipped) > 0);
-  const readyLabel = partial ? "Partial index" : "Index ready";
   const supportRequired = !!eligibility?.support_required || !!p?.support_required;
   const supportHref = `/dashboard?${new URLSearchParams({ view: "support", reason: "repository-size", repository: String(repository.id) })}`;
-  const stages: Record<string, string> = { queued: "Waiting to start", resolving: "Preparing repository", discovering: "Scanning repository", cloning: "Cloning repository", reading: "Reading files", indexing: "Indexing repository", embedding: "Indexing repository", publishing: "Saving repository index", analyzing: "Writing description", summarizing: "Writing description", completed: readyLabel, empty: "Repository is empty", failed: p?.indexed ? `${readyLabel} · analysis needs attention` : "Index needs attention", cancelled: "Indexing stopped", idle: "Ready to index" };
+  const stages: Record<string, string> = { queued: "Waiting to start", resolving: "Preparing repository", discovering: "Scanning repository", cloning: "Cloning repository", reading: "Reading files", indexing: "Indexing repository", embedding: "Indexing repository", publishing: "Saving repository index", analyzing: "Writing description", summarizing: "Writing description", completed: "Indexed", empty: "Repository is empty", failed: p?.indexed ? "Indexed · analysis needs attention" : "Index needs attention", cancelled: "Indexing stopped", idle: "Ready to index" };
   return <section className={styles.detail} aria-label={`${repository.fullName} details`}>
     <header className={styles.detailHeader}><div><span className={styles.repoOwner}>{repository.fullName.split("/")[0]}</span><h2>{repository.fullName.split("/").slice(1).join("/") || repository.fullName}</h2><div className={styles.meta}><span><DashboardIcon name={repository.private ? "lock" : "repositories"} />{repository.private ? "Private" : "Public"}</span>{p?.branch && <span>{p.branch}</span>}{p?.revision && <code title={p.revision}>{p.revision.slice(0, 7)}</code>}</div></div><a className={shared.secondaryButton} href={githubURL} target="_blank" rel="noreferrer">View on GitHub<DashboardIcon name="arrow" /></a></header>
     {!repository.private && PublicRepositoryNotice && <PublicRepositoryNotice repositoryId={String(repository.id)} />}
@@ -163,7 +221,11 @@ function RepositoryDetail({ organizationId, repository, onError }: { organizatio
       <div className={styles.statusHeading}><strong aria-live="polite">{stages[stage] || stage}</strong><span className={styles.live} data-live={live === "live"}><i />{live === "live" ? "Live" : "Refreshing every 5s"}</span></div>
       <div className={styles.counters}><span><strong>{fileCountsKnown ? p?.scan.read : "…"}</strong> files read</span><span><strong>{fileCountsKnown ? p?.scan.total : "…"}</strong> files found</span><span><strong>{p?.chunks || 0}</strong> chunks</span>{fileCountsKnown && !!p?.scan.skipped && <span><strong>{p.scan.skipped}</strong> skipped</span>}</div>
       {p?.indexed && !fileCountsKnown && <p className={styles.loading}>Refreshing file counts for the saved index…</p>}
-      {partial && <div className={styles.partialNotice}><strong>Some files weren’t indexed.</strong><p>{p?.skipped ?? p?.scan.skipped ?? 0} files skipped. Questions and reviews use the files that were indexed.</p>{!!p?.omissions?.length && <details><summary>Skipped files{p.omissions.length < (p.skipped ?? p.scan.skipped) ? ` (first ${p.omissions.length})` : ""}</summary><ul>{p.omissions.map((item, i) => <li key={`${i}:${item.path}`}><code>{item.path}</code><span>{({ excluded_type_or_path: "Unsupported type or excluded path", binary: "Binary content", credential_pattern: "Credential detected", line_size_limit: "Line exceeds readable chunk size" } as Record<string, string>)[item.reason] || "Excluded from indexing"}</span></li>)}</ul></details>}</div>}
+      {partial && <details className={styles.skippedFiles}>
+        <summary>Skipped files{(p?.skipped ?? p?.scan.skipped ?? 0) > 0 && ` (${p?.skipped ?? p?.scan.skipped})`}</summary>
+        <p>Questions and reviews use the files included in the index.</p>
+        {!!p?.omissions?.length && <ul>{p.omissions.map((item, i) => <li key={`${i}:${item.path}`}><code>{item.path}</code><span>{({ excluded_type_or_path: "Unsupported type or excluded path", binary: "Binary content", credential_pattern: "Credential detected", line_size_limit: "Line exceeds readable chunk size" } as Record<string, string>)[item.reason] || "Excluded from indexing"}</span></li>)}</ul>}
+      </details>}
       {active && <div className={styles.progress}><progress aria-label={scanning ? "Files processed" : "Chunks indexed"} max={Math.max(max, 1)} {...(["resolving", "cloning", "discovering", "queued", "publishing", "summarizing", "analyzing"].includes(stage) ? {} : { value: Math.min(value, max) })} /><span>{stage === "summarizing" || stage === "analyzing" ? "Index saved. Generating description…" : stage === "publishing" ? "Saving repository index…" : stage === "resolving" ? "Checking repository access and revision…" : stage === "cloning" ? "Downloading a temporary clone…" : stage === "discovering" ? "Counting repository files…" : stage === "queued" ? "Queued" : `${value.toLocaleString()} / ${max.toLocaleString()} ${scanning ? "files processed" : "chunks indexed"}`}</span></div>}
       <div className={styles.terminal} ref={terminal} role="log" aria-label="Indexing activity" aria-live="off" tabIndex={0} onScroll={() => { const el = terminal.current; if (el) followLogs.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40; }}><div className={styles.terminalTitle}><span>Index activity</span><span>{index.id.slice(0, 8)}</span></div>{logs.map(log => <div className={styles.logLine} key={`${index.id}:${indexLogKey(log)}`}><time dateTime={log.at}>{log.at.slice(11, 19)}</time><span>{log.message}</span></div>)}{active && <span className={styles.cursor} aria-hidden="true">▍</span>}</div>
       <Notification tone="error" message={p?.error} />
