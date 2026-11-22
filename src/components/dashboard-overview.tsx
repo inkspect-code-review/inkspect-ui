@@ -11,7 +11,7 @@ import { subscribeFindingStatusChanges } from "@inkspect/core/lib/finding-status
 import { overviewSeverities, type OverviewDecision, type OverviewReview, type OverviewSeverity, type ReviewOverview } from "@inkspect/core/lib/review-overview";
 import type { WorkspaceStatus } from "@inkspect/core/lib/workspace-status";
 import type { DashboardSummary } from "@inkspect/core/lib/dashboard";
-import { DashboardIcon } from "./dashboard-icon";
+import { DashboardIcon, type DashboardIconName } from "./dashboard-icon";
 import shared from "./dashboard.module.css";
 import styles from "./dashboard-overview.module.css";
 
@@ -148,12 +148,24 @@ export function DashboardOverviewView({ organizationId, summary, github, overvie
 function ReviewMetrics({ overview, repositoryCount }: { overview: ReviewOverview; repositoryCount: number }) {
   const { totals, decisions: verdicts } = overview;
   const attention = verdicts.needs_changes + verdicts.needs_evidence;
-  return <dl className={styles.metrics}>
-    <div><dt><DashboardIcon name="reviews" />Completed reviews</dt><dd>{totals.completed}</dd><span>{totals.active ? `${totals.active} in progress now` : totals.failed ? `${totals.failed} didn’t finish` : "Across your repositories"}</span></div>
-    <div><dt><DashboardIcon name="findings" />Open findings</dt><dd>{overview.findingStatus?.open ?? "—"}</dd><span>{overview.findingStatus ? `${overview.findingStatus.resolved} resolved · ${overview.findingStatus.notDetected} not detected in latest review` : "Finding status temporarily unavailable"}</span></div>
-    <div><dt><DashboardIcon name="check" />Reviews without blockers</dt><dd>{(verdicts.ready_for_human ?? 0) + (verdicts.ready_for_review ?? 0)}</dd><span>{attention ? `${attention} recorded reviews need changes or evidence` : "No blocking issues found"}</span></div>
-    <div><dt><DashboardIcon name="repositories" />Repositories reviewed</dt><dd>{totals.repositories}</dd><span>{`${repositoryCount} currently connected`}</span></div>
-  </dl>;
+  return <nav className={styles.metrics} aria-label="Review metrics">
+    <MetricCard href="/dashboard?view=reviews" icon="reviews" label="Completed reviews" value={totals.completed}
+      detail={totals.active ? `${totals.active} in progress now` : totals.failed ? `${totals.failed} didn’t finish` : "Across your repositories"} />
+    <MetricCard href="/dashboard?view=findings&status=open" icon="findings" label="Open findings" value={overview.findingStatus?.open ?? "—"}
+      detail={overview.findingStatus ? `${overview.findingStatus.resolved} resolved · ${overview.findingStatus.notDetected} not detected in latest review` : "Finding status temporarily unavailable"} />
+    <MetricCard href="/dashboard?view=reviews" icon="check" label="Reviews without blockers" value={(verdicts.ready_for_human ?? 0) + (verdicts.ready_for_review ?? 0)}
+      detail={attention ? `${attention} recorded reviews need changes or evidence` : "No blocking issues found"} />
+    <MetricCard href="/dashboard?view=repositories" icon="repositories" label="Repositories reviewed" value={totals.repositories}
+      detail={`${repositoryCount} currently connected`} />
+  </nav>;
+}
+
+function MetricCard({ href, icon, label, value, detail }: { href: string; icon: DashboardIconName; label: string; value: number | string; detail: string }) {
+  return <Link href={href} className={styles.metricCard}>
+    <span className={styles.metricLabel}><DashboardIcon name={icon} />{label}</span>
+    <strong className={styles.metricValue}>{value}</strong>
+    <span className={styles.metricDetail}>{detail}</span>
+  </Link>;
 }
 
 // The newest verdict: the thing a reviewer acts on next.

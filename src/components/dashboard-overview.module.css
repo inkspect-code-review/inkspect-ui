@@ -79,11 +79,13 @@
 
 /* Metric cards */
 .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin: 0; }
-.metrics > div { display: grid; gap: 8px; align-content: start; min-width: 0; padding: 22px 24px; border: 1px solid var(--dash-border); border-radius: var(--dash-panel-radius); background: var(--dash-card); }
-.metrics dt { display: flex; align-items: center; gap: 8px; color: var(--dash-muted); font-size: 12px; }
-.metrics dt svg { width: 15px; height: 15px; flex-shrink: 0; color: var(--dash-accent); }
-.metrics dd { margin: 4px 0 0; font-size: 30px; font-weight: 550; letter-spacing: -.9px; line-height: 1.2; font-variant-numeric: tabular-nums; }
-.metrics span { color: var(--dash-muted); font-size: 11px; }
+.metricCard { color: inherit; text-decoration: none; display: grid; gap: 8px; align-content: start; min-width: 0; padding: 22px 24px; border: 1px solid var(--dash-border); border-radius: var(--dash-panel-radius); background: var(--dash-card); }
+.metricCard:hover { border-color: var(--dash-accent); }
+.metricCard:focus-visible { outline: 2px solid var(--dash-accent); outline-offset: 2px; }
+.metricLabel { display: flex; align-items: center; gap: 8px; color: var(--dash-muted); font-size: 12px; }
+.metricLabel svg { width: 15px; height: 15px; flex-shrink: 0; color: var(--dash-accent); }
+.metricValue { margin: 4px 0 0; font-size: 30px; font-weight: 550; letter-spacing: -.9px; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.metricDetail { color: var(--dash-muted); font-size: 11px; }
 
 /* Latest review: a compact card, marked by the verdict's tone. */
 .latest { position: relative; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px 32px; padding: 24px 26px 24px 30px; }
@@ -222,8 +224,8 @@
   .repositoryFooter { padding-inline: 18px; }
   .visibility svg { display: none; }
   .metrics { gap: 12px; }
-  .metrics > div { padding: 18px; }
-  .metrics dd { font-size: 26px; }
+  .metricCard { padding: 18px; }
+  .metricValue { font-size: 26px; }
   .latest { padding: 22px 18px 22px 22px; }
   .latest::before { top: 22px; bottom: 22px; }
   .activityBody { padding: 0 18px 22px; }

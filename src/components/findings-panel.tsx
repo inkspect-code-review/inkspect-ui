@@ -3,6 +3,7 @@
 import { Notification } from "./notification-toast";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ArrowUp, ArrowDown, ArrowUpDown, ArrowUpRight, GitPullRequest, FolderGit2, RefreshCw, Search } from "lucide-react";
 import { productFetch } from "@inkspect/core/lib/api-client";
@@ -17,10 +18,19 @@ import styles from "./findings.module.css";
 import { FindingStatusControl } from "./finding-status-control";
 import { subscribeFindingStatusChanges } from "@inkspect/core/lib/finding-status-events";
 
+const statusOptions = [{ value: "all", label: "All history" }, { value: "open", label: "Open" }, { value: "resolved", label: "Resolved" }, { value: "not_detected", label: "Not detected in latest review" }, { value: "historical", label: "Earlier reviews" }];
+
 export function FindingsPanel({ organizationId, workspaceName, canManage, connected, repositories }: { organizationId: string; workspaceName: string; canManage: boolean; connected: boolean; repositories: ReviewRepository[] }) {
   const [repositoryId, setRepositoryId] = useState("0");
   const [severity, setSeverity] = useState("all");
-  const [status, setStatus] = useState("all");
+  const requestedStatus = useSearchParams().get("status");
+  const status = statusOptions.find(option => option.value === requestedStatus)?.value ?? "all";
+  function setStatus(value: string) {
+    const url = new URL(window.location.href);
+    if (value === "all") url.searchParams.delete("status");
+    else url.searchParams.set("status", value);
+    window.history.replaceState(null, "", url);
+  }
   const [query, setQuery] = useState("");
   const [period, setPeriod] = useState<FindingsPeriod>("all");
   const { from, before } = reviewDateBounds(period);
@@ -74,7 +84,7 @@ export function FindingsPanel({ organizationId, workspaceName, canManage, connec
         </div>
         <div className={styles.field}>
           <label htmlFor="findings-status">Status</label>
-          <SearchableSelect id="findings-status" label="Status" value={status} onValueChange={setStatus} options={[{ value: "all", label: "All history" }, { value: "open", label: "Open" }, { value: "resolved", label: "Resolved" }, { value: "not_detected", label: "Not detected in latest review" }, { value: "historical", label: "Earlier reviews" }]} placeholder="All history" searchPlaceholder="Search status…" emptyMessage="No matching status." />
+          <SearchableSelect id="findings-status" label="Status" value={status} onValueChange={setStatus} options={statusOptions} placeholder="All history" searchPlaceholder="Search status…" emptyMessage="No matching status." />
         </div>
         <button className={styles.reset} type="button" disabled={!hasFilters} onClick={() => {
           setRepositoryId("0"); setSeverity("all"); setStatus("all"); setQuery(""); setSearch(""); setPeriod("all");

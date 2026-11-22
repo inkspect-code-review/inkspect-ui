@@ -7,6 +7,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { buildOverview } from "@inkspect/core/lib/review-overview";
 import { DashboardOverview, type InitialReviewOverview } from "../../../src/components/dashboard-overview";
 import { RepositoriesWorkspace } from "../../../src/components/repositories-workspace";
+import { FindingsPanel } from "../../../src/components/findings-panel";
 import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime";
 
 const repositories = [{ id: 11, fullName: "example/first", private: false }, { id: 22, fullName: "example/second", private: true }];
@@ -20,6 +21,26 @@ const review = {
 };
 const populated: InitialReviewOverview = { ...empty, totals: { ...empty.totals, reviews: 1, completed: 1, repositories: 1 }, recent: [review], latest: review, realtime_channel: "workspace-one" };
 const render = (initialOverview?: InitialReviewOverview) => renderToStaticMarkup(<DashboardOverview organizationId="workspace-one" summary={summary} initialOverview={initialOverview} />);
+
+test("each dashboard metric links to its workspace view", () => {
+  const { document } = parseHTML(render(populated));
+  const cards = document.querySelectorAll('nav[aria-label="Review metrics"] > a');
+  assert.deepEqual(Array.from(cards, card => [card.firstElementChild?.textContent, card.getAttribute("href")]), [
+    ["Completed reviews", "/dashboard?view=reviews"],
+    ["Open findings", "/dashboard?view=findings&status=open"],
+    ["Reviews without blockers", "/dashboard?view=reviews"],
+    ["Repositories reviewed", "/dashboard?view=repositories"],
+  ]);
+});
+
+test("findings links select the requested status and default to all history", () => {
+  for (const [query, label] of [["status=open", "Open"], ["", "All history"], ["status=invalid", "All history"]]) {
+    const html = renderToStaticMarkup(<SearchParamsContext.Provider value={new URLSearchParams(query)}>
+      <FindingsPanel organizationId="workspace-one" workspaceName="Example" connected canManage repositories={[{ id: 11, full_name: "example/first", private: false }]} />
+    </SearchParamsContext.Provider>);
+    assert.equal(parseHTML(html).document.querySelector("#findings-status")?.getAttribute("aria-label"), `Status: ${label}`);
+  }
+});
 
 test("dashboard repository rows link to their own details", () => {
   const html = renderToStaticMarkup(<DashboardOverview organizationId="workspace-one" summary={summary} initialOverview={empty} github={{ configured: true, canManage: true, dismissed: false, connections: [], repositories }} />);
