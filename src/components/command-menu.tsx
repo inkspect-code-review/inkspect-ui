@@ -1,6 +1,6 @@
 "use client";
 
-import { useDashboardEdition } from "./dashboard-edition";
+import { useDashboardEdition, useDashboardWidgets } from "./dashboard-edition";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
@@ -12,6 +12,7 @@ import styles from "./command-menu.module.css";
 
 export function CommandMenu({ section, homeHref }: { section: DashboardSection; homeHref: string }) {
   const { sections: dashboardSections } = useDashboardEdition();
+  const { navigationIcons } = useDashboardWidgets();
   const [open, setOpen] = useState(false);
   const router = useRouter();
 
@@ -42,7 +43,8 @@ export function CommandMenu({ section, homeHref }: { section: DashboardSection; 
             <Command.Empty className={styles.empty}>No pages found. Try another name.</Command.Empty>
             <Command.Group heading="Workspace pages" className={styles.group}>
               {dashboardSections.map((item) => <Command.Item key={item.id} value={item.id} keywords={[item.name, item.description]} className={styles.item} onSelect={() => { setOpen(false); router.push(item.id === "dashboard" ? homeHref : `/dashboard?view=${item.id}`); }}>
-                <DashboardIcon name={item.id} /><span><strong>{item.name}</strong><small>{item.description}</small></span>{section === item.id && <span className={styles.current}>Current</span>}
+                {navigationIcons?.[item.id] ?? <DashboardIcon name={item.id} />}
+                <span><strong>{item.name}</strong><small>{item.description}</small></span>{section === item.id && <span className={styles.current}>Current</span>}
               </Command.Item>)}
             </Command.Group>
           </Command.List>
