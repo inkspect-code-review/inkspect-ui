@@ -6,6 +6,12 @@ as appropriate. The package's `0.1.0` version is not a claim of a tagged release
 
 ## Unreleased
 
+### 2026-11-22
+
+#### Added
+
+- Add account email preferences, device management, profile editing and invitation actions. Move Usage to the account menu.
+
 ### 2026-11-21
 
 #### Added
