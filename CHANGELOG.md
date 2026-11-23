@@ -6,6 +6,13 @@ as appropriate. The package's `0.1.0` version is not a claim of a tagged release
 
 ## Unreleased
 
+### 2026-11-23
+
+#### Removed
+
+- Remove macOS Finder metadata from the repository and ignore future copies.
+- Remove the Inkspect Microsoft publisher-domain association from self-hosted deployments.
+
 ### 2026-11-22
 
 #### Added
