@@ -8,6 +8,7 @@ export const DashboardEditionProvider = EditionContext.Provider;
 export function useDashboardEdition() { return useContext(EditionContext); }
 
 const WidgetsContext = createContext<{
+  ReviewUsage?: ComponentType<{ organizationId: string; jobId: string }>;
   ReviewAllowance?: ComponentType<{ organizationId: string }>;
   PublicRepositoryNotice?: ComponentType<{ repositoryId: string }>;
   navigationIcons?: Partial<Record<DashboardSection, ReactNode>>;

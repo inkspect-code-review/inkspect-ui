@@ -13,9 +13,27 @@ as appropriate. The package's `0.1.0` version is not a claim of a tagged release
 - Remove macOS Finder metadata from the repository and ignore future copies.
 - Remove the Inkspect Microsoft publisher-domain association from self-hosted deployments.
 
+#### Changed
+
+- Show when the selected repository index is behind its default branch.
+
+- Confirm and retry a failed or cancelled review directly from its pull request details.
+
+- Label the initial action “Auto Fix” and the retry action “Retry Auto Fix” on a pull request review.
+
+- Show the repository’s effective indexing size limit when indexing requires assistance.
+
+#### Fixed
+
+- Offer Retry review for a failed pull request review that used the server-selected model.
+
+- Load cited code snippets only when a reader opens a source in Ask AI.
+
 ### 2026-11-22
 
 #### Added
+
+- Allow dashboard integrations to supply a usage summary for a finished review.
 
 - Link dashboard metric cards to reviews, open findings and repositories.
 

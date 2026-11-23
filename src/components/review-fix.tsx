@@ -90,7 +90,7 @@ export function ReviewFix({ jobId, pullUrl, request, openFindingCount, onReviewL
   const blockedMessage = !state?.latest_review ? reviewBlockerMessage(state?.review_blocker) : undefined;
   const stale = !!state?.review_stale && !active && !completed;
   const status = pending ? "Starting fix…" : fix?.status === "queued" ? "Fix queued" : fix?.status === "paused" ? edition.fix.pausedStatus : "Fixing findings…";
-  const label = checking ? "Checking PR status…" : unverified ? "PR status unavailable" : closed ? "Fix with AI" : active ? status : state?.approval ? "Review file permissions" : fix?.retryable ? "Retry fix" : fix ? "Fix stopped" : "Fix with AI";
+  const label = checking ? "Checking PR status…" : unverified ? "PR status unavailable" : active ? status : state?.approval ? "Review file permissions" : fix?.retryable ? "Retry Auto Fix" : fix ? "Fix stopped" : "Auto Fix";
   const note = stale ? blockedMessage ? "No review is running for the new commit." : latest.ready ? "Continue on the latest PR version." : "This updates automatically." : closed ? "Auto fix is unavailable because this PR is closed." : checking ? "Checking the PR on GitHub." : unverified ? "Could not verify PR status. Retrying…" : active ? "You can leave this page." : completed ? fix.commit?.slice(0, 7) : "One commit. Same PR.";
   const notification = <Notification tone={error || fixError ? "error" : "info"} message={error || fixError || state?.reason} notificationKey={errors.jobId === jobId && errors.action ? `action-${errors.revision}` : fixError ? notice?.fix?.id : undefined} />;
   if (closed || (!openFindingCount && !active && !completed && !stale) || (state && !state.available && !fix && !unverified && !stale && !state.review_reason)) return error ? notification : null;

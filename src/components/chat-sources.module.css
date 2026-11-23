@@ -5,7 +5,7 @@
 .tab { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 6px; max-width: 100%; min-height: 32px; padding: 6px 9px; border: 1px solid var(--dash-border); border-radius: 6px; background: var(--dash-panel); color: var(--dash-muted); font: inherit; font-size: 12px; cursor: pointer; }
 .tab svg, .fileHeader svg { flex-shrink: 0; }
 .tab:hover { color: var(--dash-text); border-color: var(--dash-muted); }
-.tab[aria-selected="true"] { color: var(--dash-accent); border-color: color-mix(in srgb, var(--dash-accent) 50%, var(--dash-border)); background: color-mix(in srgb, var(--dash-accent) 9%, var(--dash-panel)); }
+.tab[aria-expanded="true"] { color: var(--dash-accent); border-color: color-mix(in srgb, var(--dash-accent) 50%, var(--dash-border)); background: color-mix(in srgb, var(--dash-accent) 9%, var(--dash-panel)); }
 .filename { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tabReference { flex-shrink: 0; font-size: 10px; }
 .filePanel { min-width: 0; border: 1px solid var(--dash-border); border-radius: 8px; overflow: hidden; background: var(--dash-panel); }
@@ -16,7 +16,7 @@
 .codeViewport { height: 220px; min-width: 0; overflow: hidden; }
 .codeViewport .code { height: 100%; max-height: none; box-sizing: border-box; }
 .filePanel .toolbar { min-height: 38px; box-sizing: border-box; }
-.fileSources :is(button, [role="tabpanel"], pre, a):focus-visible { outline: 2px solid var(--dash-accent); outline-offset: -2px; }
+.fileSources :is(button, [role="region"], pre, a):focus-visible { outline: 2px solid var(--dash-accent); outline-offset: -2px; }
 @media (max-width: 480px) {
   .fileHeader { gap: 6px; padding-inline: 8px; }
   .fileLocation { flex-direction: column; align-items: flex-end; gap: 2px; }

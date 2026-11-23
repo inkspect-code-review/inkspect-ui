@@ -26,8 +26,8 @@ export function ChatSources({ sources, ...scope }: Scope & { sources: ChatRefere
 
 function FileSources({ sources, ...scope }: Scope & { sources: Citation[] }) {
   const id = useId();
-  const [selectedId, setSelectedId] = useState(sources[0].id);
-  const selected = sources.find(source => source.id === selectedId) ?? sources[0];
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = sources.find(source => source.id === selectedId);
   function navigate(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     let next: number;
     if (event.key === "ArrowRight") next = (index + 1) % sources.length;
@@ -36,24 +36,23 @@ function FileSources({ sources, ...scope }: Scope & { sources: Citation[] }) {
     else if (event.key === "End") next = sources.length - 1;
     else return;
     event.preventDefault();
-    setSelectedId(sources[next].id);
-    event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
+    event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('button')[next]?.focus();
   }
   return <div className={styles.fileSources}>
-    <div className={styles.tabs} role="tablist" aria-label="Source files">
+    <div className={styles.tabs} role="group" aria-label="Source files">
       {sources.map((source, index) => {
         const filename = source.path.split("/").pop() || source.path;
         const duplicate = sources.some(other => other.id !== source.id && other.path.split("/").pop() === filename);
         const label = `${source.id}: ${source.repository}/${source.path}, lines ${source.startLine}–${source.endLine}`;
-        return <button key={source.id} type="button" role="tab" id={`${id}-tab-${source.id}`} aria-controls={`${id}-panel`} aria-selected={source.id === selected.id} aria-label={label} title={label} tabIndex={source.id === selected.id ? 0 : -1} className={styles.tab} onClick={() => setSelectedId(source.id)} onKeyDown={event => navigate(event, index)}>
+        return <button key={source.id} type="button" id={`${id}-source-${source.id}`} aria-controls={selectedId === source.id ? `${id}-panel` : undefined} aria-expanded={source.id === selectedId} aria-label={label} title={label} className={styles.tab} onClick={() => setSelectedId(current => current === source.id ? null : source.id)} onKeyDown={event => navigate(event, index)}>
           <FileText size={14} aria-hidden="true" /><span className={styles.filename}>{filename}</span>{duplicate && <span className={styles.tabReference}>{source.id} · {source.startLine}–{source.endLine}</span>}
         </button>;
       })}
     </div>
-    <div className={styles.filePanel} role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-tab-${selected.id}`} tabIndex={0}>
+    {selected && <div className={styles.filePanel} role="region" id={`${id}-panel`} aria-labelledby={`${id}-source-${selected.id}`} tabIndex={0}>
       <div className={styles.fileHeader}><FileText size={14} aria-hidden="true" /><span className={styles.filePath} title={`${selected.repository}/${selected.path}`}>{selected.path}<small>{selected.repository}</small></span><span className={styles.fileLocation}><span className={styles.badge}>{selected.id}</span>Lines {selected.startLine}–{selected.endLine}</span></div>
       <SourcePreview key={`${selected.id}:${selected.repository}:${selected.path}:${selected.revision}:${selected.startLine}:${selected.endLine}`} source={selected} {...scope} />
-    </div>
+    </div>}
   </div>;
 }
 
