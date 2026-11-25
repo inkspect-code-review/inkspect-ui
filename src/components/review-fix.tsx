@@ -1,6 +1,6 @@
 "use client";
 
-import { fixAction, retainFixReadiness, latestReviewAction, type LatestFixReview, type ReviewBlocker, reviewBlockerMessage } from "./review-fix-action";
+import { fixAction, retainFixReadiness, latestReviewAction, type LatestFixReview, type ReviewBlocker } from "./review-fix-action";
 import { observeFixNotice, type FixNotice } from "./review-fix-notice";
 import { reduceFixErrors } from "./review-fix-errors";
 import { ConfirmationDialog } from "./confirmation-dialog";
@@ -28,12 +28,14 @@ export function ReviewFix({ jobId, pullUrl, request, openFindingCount, onReviewL
   const sending = useRef(false);
   const alive = useRef(false);
   const [revision, setRevision] = useState(0);
+  const [rechecking, setRechecking] = useState(false);
   useEffect(() => {
     alive.current = true;
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
     let checkedPull = false;
     let awaitingReview = false;
+    let missingReviewChecks = 0;
     const refresh = async () => {
       try {
         // Recheck while waiting for the current PR revision to receive a review.
@@ -42,16 +44,21 @@ export function ReviewFix({ jobId, pullUrl, request, openFindingCount, onReviewL
         if (controller.signal.aborted) return;
         if ((!checkedPull || awaitingReview) && typeof result.pr_open !== "boolean") throw new Error("Could not check whether this PR is still open.");
         checkedPull = true;
-        awaitingReview = !!result.review_stale && !latestReviewAction(result.latest_review).ready;
+        awaitingReview = !!result.review_stale && !result.latest_review;
+        setRechecking(false);
         setNotice(previous => observeFixNotice(previous, jobId, result.fix));
         setState(previous => retainFixReadiness(previous, result)); updateErrors({ jobId, type: 'progress-ok' });
         if (result.pr_open === false) return;
         // Automatic fixes can be admitted after the report first becomes visible.
-        if (awaitingReview) timer = setTimeout(refresh, 15000);
-        else if (ongoing(result.fix)) timer = setTimeout(refresh, 3000);
+        if (ongoing(result.fix)) timer = setTimeout(refresh, awaitingReview ? 15000 : 3000);
+        else if (awaitingReview) {
+          // A workflow wake-up does not guarantee a review will be created.
+          if (!result.review_blocker && ++missingReviewChecks < 4) timer = setTimeout(refresh, 15000);
+        }
         else if (result.available && !result.fix) timer = setTimeout(refresh, 15000);
       } catch (failure) {
         if (controller.signal.aborted) return;
+        setRechecking(false);
         updateErrors({ jobId, type: 'progress-error', message: failure instanceof Error ? failure.message : undefined });
         timer = setTimeout(refresh, 10000);
       }
@@ -87,24 +94,26 @@ export function ReviewFix({ jobId, pullUrl, request, openFindingCount, onReviewL
   const active = !closed && (pending || ongoing(fix));
   const completed = !!fix?.commit;
   const latest = latestReviewAction(state?.latest_review, state?.review_blocker);
-  const blockedMessage = !state?.latest_review ? reviewBlockerMessage(state?.review_blocker) : undefined;
   const stale = !!state?.review_stale && !active && !completed;
   const status = pending ? "Starting fix…" : fix?.status === "queued" ? "Fix queued" : fix?.status === "paused" ? edition.fix.pausedStatus : "Fixing findings…";
   const label = checking ? "Checking PR status…" : unverified ? "PR status unavailable" : active ? status : state?.approval ? "Review file permissions" : fix?.retryable ? "Retry Auto Fix" : fix ? "Fix stopped" : "Auto Fix";
-  const note = stale ? blockedMessage ? "No review is running for the new commit." : latest.ready ? "Continue on the latest PR version." : "This updates automatically." : closed ? "Auto fix is unavailable because this PR is closed." : checking ? "Checking the PR on GitHub." : unverified ? "Could not verify PR status. Retrying…" : active ? "You can leave this page." : completed ? fix.commit?.slice(0, 7) : "One commit. Same PR.";
+  const note = stale ? latest.note : closed ? "Auto fix is unavailable because this PR is closed." : checking ? "Checking the PR on GitHub." : unverified ? "Could not verify PR status. Retrying…" : active ? "You can leave this page." : completed ? fix.commit?.slice(0, 7) : "One commit. Same PR.";
   const notification = <Notification tone={error || fixError ? "error" : "info"} message={error || fixError || state?.reason} notificationKey={errors.jobId === jobId && errors.action ? `action-${errors.revision}` : fixError ? notice?.fix?.id : undefined} />;
   if (closed || (!openFindingCount && !active && !completed && !stale) || (state && !state.available && !fix && !unverified && !stale && !state.review_reason)) return error ? notification : null;
   return <aside className={styles.aiFix} aria-label="Fix with Inkspect AI" aria-busy={checking || active}>
     <div className={styles.aiFixMark} aria-hidden="true"><GitCommitHorizontal size={24} strokeWidth={1.5} /></div>
     <div className={styles.aiFixCopy}>
       <h3>{completed ? "Fix committed to your PR" : stale ? "This review is out of date" : active ? status : `${openFindingCount} open ${openFindingCount === 1 ? "finding" : "findings"}`}</h3>
-      <p>{completed ? "Review the commit and verify the changes." : stale || state?.pr_ready === false ? blockedMessage || state?.review_reason : "Let Inkspect AI fix the findings in this PR."}</p>
+      <p>{completed ? "Review the commit and verify the changes." : stale || state?.pr_ready === false ? state?.review_reason : "Let Inkspect AI fix the findings in this PR."}</p>
       <small>{completed ? "Generated changes need verification. Tests were not run by the fix engine." : (state?.billing_mode === "byok" ? edition.fix.byokDescription : edition.fix.managedDescription)}</small>
       {fix?.status === "paused" && !closed && <p role="status">{edition.fix.pausedMessage}</p>}
       {notification}
     </div>
     <div className={styles.aiFixAction}>
-      {stale ? <button type="button" className={styles.primary} disabled={!latest.ready} onClick={() => { if (state?.latest_review && latest.ready) onReviewLatest(state.latest_review.id); }}><span className={styles.aiFixButtonContent}>{!latest.ready && !blockedMessage && state?.latest_review?.status !== "paused" && <LoaderCircle size={15} className={styles.aiFixSpinner} aria-hidden="true" />}{latest.label}</span></button> : completed && !closed && !unverified ? <a href={`${pullUrl}/commits/${fix.commit}`} target="_blank" rel="noreferrer"><Check size={15} />View commit<ArrowUpRight size={14} /></a>
+      {stale ? <button type="button" className={styles.primary} disabled={rechecking} aria-busy={rechecking} onClick={() => {
+        if (state.latest_review) onReviewLatest(state.latest_review.id);
+        else { setRechecking(true); setRevision(value => value + 1); }
+      }}><span className={styles.aiFixButtonContent}>{rechecking ? "Checking…" : latest.label}</span></button> : completed && !closed && !unverified ? <a href={`${pullUrl}/commits/${fix.commit}`} target="_blank" rel="noreferrer"><Check size={15} />View commit<ArrowUpRight size={14} /></a>
         : <button ref={actionRef} type="button" className={styles.primary} onClick={() => void start()} disabled={!openFindingCount || unverified || closed || !state?.available || state.pr_ready === false || state.review_stale === true || pending || (!!fix && !fix.retryable)} aria-busy={checking || active}>
           <span key={label} className={styles.aiFixButtonContent}>
             {(checking || active) && <LoaderCircle size={15} className={styles.aiFixSpinner} aria-hidden="true" />}

@@ -1,9 +1,11 @@
 "use client";
 
+import { useDashboardWidgets } from "./dashboard-edition";
+import { ReviewSettingsSummary } from "./review-settings-summary";
 import { ReviewPullTitle } from "./review-pull-title";
 import { Notification } from "./notification-toast";
 import Link from "next/link";
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { productFetch } from "@inkspect/core/lib/api-client";
 import { reportBrowserError } from "@inkspect/core/lib/diagnostics/client";
 import { subscribeReviews } from "@inkspect/core/lib/review-realtime";
@@ -88,10 +90,10 @@ export function DashboardOverviewView({ organizationId, summary, github, overvie
   const connections = github?.connections ?? [];
   const hasRepositories = repositories.length > 0;
 
-  return <div className={styles.overview}>
-    {loading ? <div className={styles.loading} role="status" aria-live="polite"><span className={styles.loadingBar} /><span>Loading your reviews…</span></div>
+  const { overviewCard } = useDashboardWidgets();
+  const reviewSummary = loading ? <div className={styles.loading} role="status" aria-live="polite"><span className={styles.loadingBar} /><span>Loading your reviews…</span></div>
       : unavailable ? <Notification tone="error" message="Your saved reviews couldn’t be loaded. Refresh the page to try again." action={{ label: "Refresh page", onClick: () => window.location.reload() }} />
-      : overview ? <ReviewMetrics overview={overview} repositoryCount={repositories.length} />
+      : overview ? <ReviewMetrics overview={overview} repositoryCount={repositories.length} overviewCard={overviewCard} />
       : <section className={styles.reviewStart} aria-labelledby="start-review-heading">
       <div className={styles.reviewIntro}>
         <span className={styles.reviewMark}><DashboardIcon name="reviews" /></span>
@@ -105,7 +107,10 @@ export function DashboardOverviewView({ organizationId, summary, github, overvie
         <li><DashboardIcon name="reviews" /><span>Choose a pull request</span></li>
         <li><DashboardIcon name="findings" /><span>Explore the findings</span></li>
       </ol>
-    </section>}
+    </section>;
+
+  return <div className={styles.overview}>
+    {overviewCard && !overview ? <div className={styles.summaryRow}>{overviewCard}{reviewSummary}</div> : reviewSummary}
 
     <div className={styles.workspaceGrid}>
       <div className={styles.mainColumn}>
@@ -126,6 +131,7 @@ export function DashboardOverviewView({ organizationId, summary, github, overvie
       </div>
 
       <aside className={styles.context} aria-label="Workspace context">
+        {organizationId && <ReviewSettingsSummary key={organizationId} organizationId={organizationId} />}
         {overview && <SeverityBreakdown overview={overview} />}
         <section className={styles.team} aria-labelledby="workspace-heading">
           <h2 id="workspace-heading">Working together</h2>
@@ -145,18 +151,19 @@ export function DashboardOverviewView({ organizationId, summary, github, overvie
   </div>;
 }
 
-function ReviewMetrics({ overview, repositoryCount }: { overview: ReviewOverview; repositoryCount: number }) {
+function ReviewMetrics({ overview, repositoryCount, overviewCard }: { overview: ReviewOverview; repositoryCount: number; overviewCard?: ReactNode }) {
   const { totals, decisions: verdicts } = overview;
   const attention = verdicts.needs_changes + verdicts.needs_evidence;
-  return <nav className={styles.metrics} aria-label="Review metrics">
+  return <nav className={styles.metrics} aria-label={overviewCard ? "Workspace overview" : "Review metrics"}>
+    {overviewCard}
     <MetricCard href="/dashboard?view=reviews" icon="reviews" label="Completed reviews" value={totals.completed}
       detail={totals.active ? `${totals.active} in progress now` : totals.failed ? `${totals.failed} didn’t finish` : "Across your repositories"} />
     <MetricCard href="/dashboard?view=findings&status=open" icon="findings" label="Open findings" value={overview.findingStatus?.open ?? "—"}
       detail={overview.findingStatus ? `${overview.findingStatus.resolved} resolved · ${overview.findingStatus.notDetected} not detected in latest review` : "Finding status temporarily unavailable"} />
     <MetricCard href="/dashboard?view=reviews" icon="check" label="Reviews without blockers" value={(verdicts.ready_for_human ?? 0) + (verdicts.ready_for_review ?? 0)}
       detail={attention ? `${attention} recorded reviews need changes or evidence` : "No blocking issues found"} />
-    <MetricCard href="/dashboard?view=repositories" icon="repositories" label="Repositories reviewed" value={totals.repositories}
-      detail={`${repositoryCount} currently connected`} />
+    {!overviewCard && <MetricCard href="/dashboard?view=repositories" icon="repositories" label="Repositories reviewed" value={totals.repositories}
+      detail={`${repositoryCount} currently connected`} />}
   </nav>;
 }
 

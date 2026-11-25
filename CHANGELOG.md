@@ -6,6 +6,27 @@ as appropriate. The package's `0.1.0` version is not a claim of a tagged release
 
 ## Unreleased
 
+### 2026-11-25
+
+#### Changed
+
+- Use the dashboard switches for automatic reviews and auto fix in workspace settings.
+- Show the current review settings on the dashboard overview and support additional overview widgets.
+
+#### Fixed
+
+- Show how to review the current PR revision when a report is stale, and let users open an existing review at any stage.
+
+- Align On and Off labels with their switches and keep the switches in place when toggled.
+
+### 2026-11-24
+
+#### Added
+
+- Show workspace review settings in the dashboard sidebar with switches for automatic reviews and fixes and a full-width button to open workspace settings.
+
+- Allow applications to supply a dashboard card that appears first in the four-card metrics row and before the getting-started panel in a new workspace.
+
 ### 2026-11-23
 
 #### Removed

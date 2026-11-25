@@ -8,6 +8,11 @@
   --tone-caution: color-mix(in srgb, var(--sev-medium) 72%, var(--dash-text));
   --tone-good: var(--dash-success-text);
   display: grid; gap: 32px; min-width: 0;
+  container-type: inline-size;
+}
+.summaryRow { display: grid; grid-template-columns: minmax(220px, 25%) minmax(0, 1fr); gap: 20px; }
+@container (max-width: 740px) {
+  .summaryRow { grid-template-columns: minmax(0, 1fr); gap: 16px; }
 }
 .reviewStart { background: var(--dash-feature); border: 1px solid var(--dash-feature-border); border-radius: 16px; overflow: hidden; }
 .reviewIntro { display: flex; align-items: flex-start; gap: 24px; padding: 34px; }
@@ -54,6 +59,11 @@
 .repositoryEmpty p { max-width: 46ch; margin: 0; font-size: 12px; color: var(--dash-muted); line-height: 1.8; }
 .context { display: grid; gap: 30px; min-width: 0; }
 .context h2 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -.3px; }
+.reviewSettings { display: grid; gap: 0; margin: 12px 0; }
+.reviewSettings > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--dash-border); font-size: 12px; }
+.reviewSettingToggle { display: inline-flex; align-items: center; gap: 8px; min-height: 20px; }
+.reviewSettings dt { color: var(--dash-muted); }
+.reviewSettings dd { margin: 0; text-align: right; font-weight: 600; }
 .team { padding: 8px 0; }
 .workspaceFacts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin: 22px 0; }
 .workspaceFacts dt { color: var(--dash-muted); font-size: 11px; }
@@ -210,7 +220,7 @@
   .knowledge { border-top: 0; padding-top: 8px; }
   .severity { grid-column: 1 / -1; }
 }
-@media (max-width: 960px) { .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container (max-width: 740px) { .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 600px) {
   .reviewIntro { padding: 24px 20px; gap: 16px; }
   .reviewMark { flex-basis: 40px; height: 42px; border-radius: 12px 12px 12px 4px; }

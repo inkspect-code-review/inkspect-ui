@@ -25,21 +25,20 @@ test('offline progress cannot re-enable fixes on a stale or draft review',()=>{
  }
 });
 
-test('latest PR review waits without starting a new review, then enables navigation',()=>{
- assert.deepEqual(latestReviewAction(null),{ready:false,label:'Waiting for review…'});
- for(const status of ['queued','running']) assert.deepEqual(latestReviewAction({id:'current',status}),{ready:false,label:'Review in progress…'});
- assert.deepEqual(latestReviewAction({id:'current',status:'paused'}),{ready:false,label:'Review paused'});
- for(const status of ['completed','failed','cancelled']) assert.deepEqual(latestReviewAction({id:'current',status}),{ready:true,label:'View latest review'});
+test('stale reports offer a read-only recheck or navigation to an existing review',()=>{
+ assert.equal(latestReviewAction(null).label,'Check again');
+ assert.match(latestReviewAction(null).note,/New review/);
+ for(const status of ['queued','running','paused','completed','failed','cancelled'])
+   assert.deepEqual(latestReviewAction({id:'current',status}),{label:'View latest review',note:`Latest review status: ${status}.`});
  const state={available:false,pr_open:true,review_stale:true,latest_review:{id:'current',status:'running'}};
  assert.deepEqual(retainFixReadiness(state,{available:true}).latest_review,state.latest_review);
  assert.equal(retainFixReadiness(state,{available:false,pr_open:true,latest_review:null}).latest_review,null);
 });
 
 test('missing reviews explain blockers without claiming work is in progress',()=>{
- for(const [blocker,label] of [['ignored_author','Review skipped'],['automatic_disabled','Automatic reviews off'],['draft','PR is a draft'],['not_scheduled','Review not scheduled']] as const) {
-  assert.deepEqual(latestReviewAction(null,blocker),{ready:false,label});
-  assert.ok(reviewBlockerMessage(blocker));
-  assert.deepEqual(latestReviewAction({id:'latest',status:'completed'},blocker),{ready:true,label:'View latest review'});
+ for(const blocker of ['ignored_author','automatic_disabled','draft','not_scheduled'] as const) {
+  assert.deepEqual(latestReviewAction(null,blocker),{label:'Check again',note:reviewBlockerMessage(blocker)});
+  assert.equal(latestReviewAction({id:'latest',status:'completed'},blocker).label,'View latest review');
   const previous={available:false,pr_open:true,review_blocker:blocker};
   assert.equal(retainFixReadiness(previous,{available:true}).review_blocker,blocker);
   assert.equal(retainFixReadiness(previous,{available:false,pr_open:true,review_blocker:null}).review_blocker,null);

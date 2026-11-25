@@ -22,8 +22,11 @@ export function reviewBlockerMessage(blocker?: ReviewBlocker | null) {
   return undefined;
 }
 export function latestReviewAction(review?: LatestFixReview | null, blocker?: ReviewBlocker | null) {
-  const ready = !!review && ["completed", "failed", "cancelled"].includes(review.status);
-  return { ready, label: !review && blocker ? blocker === "ignored_author" ? "Review skipped" : blocker === "automatic_disabled" ? "Automatic reviews off" : blocker === "draft" ? "PR is a draft" : "Review not scheduled" : ready ? "View latest review" : !review ? "Waiting for review…" : review.status === "paused" ? "Review paused" : "Review in progress…" };
+  if (review) return { label: "View latest review", note: `Latest review status: ${review.status}.` };
+  return {
+    label: "Check again",
+    note: reviewBlockerMessage(blocker) ?? "No review yet for this revision. Choose New review to start one.",
+  };
 }
 
 type Readiness = { pr_open?: boolean; pr_ready?: boolean; review_stale?: boolean; review_reason?: string; latest_review?: LatestFixReview | null; review_blocker?: ReviewBlocker | null };

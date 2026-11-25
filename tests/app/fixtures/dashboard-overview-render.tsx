@@ -7,6 +7,8 @@ import { parseHTML } from "linkedom";
 import { renderToStaticMarkup } from "react-dom/server";
 import { buildOverview } from "@inkspect/core/lib/review-overview";
 import { DashboardOverview, type InitialReviewOverview } from "../../../src/components/dashboard-overview";
+import { DashboardWidgetsProvider } from "../../../src/components/dashboard-edition";
+import { ReviewFix } from "../../../src/components/review-fix";
 import { ReviewWorkspace } from "../../../src/components/review-workspace";
 import { RepositoriesWorkspace } from "../../../src/components/repositories-workspace";
 import { FindingsPanel } from "../../../src/components/findings-panel";
@@ -23,6 +25,26 @@ const review = {
 };
 const populated: InitialReviewOverview = { ...empty, totals: { ...empty.totals, reviews: 1, completed: 1, repositories: 1 }, recent: [review], latest: review, realtime_channel: "workspace-one" };
 const render = (initialOverview?: InitialReviewOverview) => renderToStaticMarkup(<DashboardOverview organizationId="workspace-one" summary={summary} initialOverview={initialOverview} />);
+
+test("an optional overview card leads the dashboard summary row", () => {
+  for (const overview of [empty, populated, undefined]) {
+    const html = renderToStaticMarkup(<DashboardWidgetsProvider value={{ overviewCard: <aside id="extra-card" /> }}>
+      <DashboardOverview organizationId="workspace-one" summary={summary} initialOverview={overview} />
+    </DashboardWidgetsProvider>);
+    const card = parseHTML(html).document.querySelector("#extra-card");
+    assert.ok(card);
+    if (overview === populated) {
+      const row = card.parentElement;
+      assert.ok(row);
+      assert.ok(row.matches('nav[aria-label="Workspace overview"]'));
+      assert.equal(row.children.length, 4);
+      assert.equal(row.firstElementChild, card);
+      assert.doesNotMatch(row.textContent ?? "", /Repositories reviewed/);
+    } else {
+      assert.ok(card.nextElementSibling?.matches('section[aria-labelledby="start-review-heading"], [role="status"]'));
+    }
+  }
+});
 
 test("each dashboard metric links to its workspace view", () => {
   const { document } = parseHTML(render(populated));
@@ -98,6 +120,79 @@ function dashboardDocument(t: TestContext) {
   return document;
 }
 
+test("a stale report rechecks the current PR without starting a fix and opens its queued review", async t => {
+  const doc = dashboardDocument(t);
+  const root = createRoot(doc.getElementById("dashboard")!);
+  let latest: { id: string; status: string } | null = null;
+  const request = t.mock.fn(async () => ({ available: false, pr_open: true, pr_ready: false, review_stale: true, latest_review: latest, fix: null }));
+  const navigate = t.mock.fn();
+  const button = () => doc.querySelector<HTMLButtonElement>('aside button')!;
+  try {
+    await act(async () => root.render(<ReviewFix jobId="old" pullUrl="https://github.com/team/repo/pull/3" openFindingCount={1} request={request} onReviewLatest={navigate} />));
+    assert.equal(button().textContent, "Check again");
+    assert.equal(button().disabled, false);
+    assert.equal(button().querySelector("svg"), null);
+    assert.match(doc.body.textContent!, /New review/);
+    latest = { id: "current", status: "queued" };
+    await act(async () => button().click());
+    assert.equal(button().textContent, "View latest review");
+    await act(async () => button().click());
+    assert.equal(navigate.mock.calls[0].arguments[0], "current");
+    assert.equal(request.mock.callCount(), 2);
+    for (const call of request.mock.calls) {
+      assert.deepEqual(Array.from(call.arguments).slice(0, 3), ["fix", { jobId: "old", checkPull: "1" }, undefined]);
+    }
+  } finally { await act(async () => root.unmount()); }
+});
+
+test("the sidebar shows saved workspace review settings and keeps the settings link on failure", async t => {
+  const doc = dashboardDocument(t);
+  t.mock.method(globalThis, "fetch", async (url: string) => {
+    const endpoint = new URL(url, "https://example.test");
+    assert.equal(endpoint.pathname, "/api/review-settings");
+    return endpoint.searchParams.get("organizationId") === "one"
+      ? Response.json({ automatic: false, auto_fix: true, check_threshold: "P2", can_manage: false })
+      : new Response(null, { status: 403 });
+  });
+  const root = createRoot(doc.getElementById("dashboard")!);
+  try {
+    for (const [id, expected] of [["one", ["Off", "On", "Medium and above"]], ["two", Array(3).fill("Unavailable")]] as const) {
+      await act(async () => root.render(<DashboardOverview organizationId={id} summary={summary} initialOverview={populated} />));
+      const panel = doc.querySelector('aside section[aria-labelledby="dashboard-review-settings"]');
+      assert.ok(panel);
+      assert.deepEqual(Array.from(panel.querySelectorAll("dd"), item => item.textContent), expected);
+      if (id === "one") assert.equal(panel.querySelectorAll('[role="switch"][disabled]').length, 2);
+      assert.equal(panel.querySelector("a")?.getAttribute("href"), "/dashboard?view=settings");
+    }
+  } finally { await act(async () => root.unmount()); }
+});
+
+test("dashboard switches save each workspace setting and reflect the confirmed result", async t => {
+  const doc = dashboardDocument(t);
+  const settings = { automatic: false, auto_fix: true, check_threshold: "P2", can_manage: true };
+  const updates: object[] = [];
+  t.mock.method(globalThis, "fetch", async (url: string, init: RequestInit) => {
+    assert.equal(url, "/api/review-settings?organizationId=one");
+    if (init.method === "POST") {
+      const update = JSON.parse(String(init.body));
+      updates.push(update);
+      Object.assign(settings, update);
+    }
+    return Response.json(settings);
+  });
+  const root = createRoot(doc.getElementById("dashboard")!);
+  try {
+    await act(async () => root.render(<DashboardOverview organizationId="one" summary={summary} initialOverview={populated} />));
+    for (const [field, expected] of [["automatic", true], ["auto_fix", false]] as const) {
+      const control = doc.querySelector<HTMLButtonElement>(`#dashboard-${field}`)!;
+      assert.equal(control.getAttribute("role"), "switch");
+      await act(async () => control.click());
+      assert.equal(control.getAttribute("aria-checked"), String(expected));
+    }
+    assert.deepEqual(updates, [{ automatic: true }, { auto_fix: false }]);
+  } finally { await act(async () => root.unmount()); }
+});
+
 test("a channel-less snapshot bootstraps a subscription and refreshes on a review event", async t => {
   const document = dashboardDocument(t);
   const previousKey = process.env.NEXT_PUBLIC_PUBB_APP_KEY;
@@ -116,21 +211,24 @@ test("a channel-less snapshot bootstraps a subscription and refreshes on a revie
   Object.defineProperty(globalThis, "WebSocket", { configurable: true, value: TestSocket });
   t.after(() => Object.defineProperty(globalThis, "WebSocket", socketDescriptor));
   t.mock.timers.enable({ apis: ["setTimeout"] });
-  const fetchOverview = t.mock.method(globalThis, "fetch", async (url: string) => {
+  let overviewRequests = 0;
+  t.mock.method(globalThis, "fetch", async (url: string) => {
+    if (url.includes("/api/review-settings?")) return Response.json({ automatic: true, auto_fix: false, check_threshold: "P0" });
     assert.match(url, /action=overview/);
+    overviewRequests++;
     return Response.json({ ...empty, realtime_channel: "channel" });
   });
   const root = createRoot(document.getElementById("dashboard")!);
   try {
     await act(async () => root.render(<DashboardOverview organizationId="workspace-one" summary={summary} initialOverview={empty} />));
-    assert.equal(fetchOverview.mock.callCount(), 1);
+    assert.equal(overviewRequests, 1);
     const [socket] = sockets;
     assert.ok(socket?.onmessage);
     await act(async () => {
       socket.onmessage!({ data: JSON.stringify({ channel: "channel", data: JSON.stringify({ name: "review.changed" }) }) });
       t.mock.timers.tick(1500);
     });
-    assert.equal(fetchOverview.mock.callCount(), 2);
+    assert.equal(overviewRequests, 2);
   } finally { await act(async () => root.unmount()); }
 });
 

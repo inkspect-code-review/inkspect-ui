@@ -59,8 +59,8 @@
 }
 
 .personalSheet { margin-top: 24px; }
-.automaticToggle { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; cursor: pointer; }
-.automaticToggle input { width: 18px; height: 18px; accent-color: var(--dash-accent); }
+.automaticToggle { display: inline-flex; align-items: center; gap: 8px; min-height: 20px; font-size: 14px; }
+.automaticToggle > label { min-inline-size: 2em; margin: 0; line-height: 1.25; }
 .authorList { resize: vertical; }
 .authorActions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 

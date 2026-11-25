@@ -4,7 +4,7 @@ import { parseHTML } from "linkedom";
 const { window, document } = parseHTML("<html><head></head><body></body></html>");
 Object.assign(globalThis, {
   window, document, self: window, location: new URL("https://example.test/dashboard"),
-  HTMLElement: window.HTMLElement, Node: window.Node, CustomEvent: window.CustomEvent,
+  HTMLFormElement: window.HTMLFormElement, HTMLElement: window.HTMLElement, Node: window.Node, CustomEvent: window.CustomEvent,
   MutationObserver: window.MutationObserver, getComputedStyle: (element: HTMLElement) => element.style,
   requestAnimationFrame: (callback: FrameRequestCallback) => setTimeout(() => callback(performance.now()), 0),
   cancelAnimationFrame: clearTimeout,
