@@ -11,8 +11,9 @@
   container-type: inline-size;
 }
 .summaryRow { display: grid; grid-template-columns: minmax(220px, 25%) minmax(0, 1fr); gap: 20px; }
+.summaryRow[data-wide=true] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @container (max-width: 740px) {
-  .summaryRow { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .summaryRow, .summaryRow[data-wide=true] { grid-template-columns: minmax(0, 1fr); gap: 16px; }
 }
 .reviewStart { background: var(--dash-feature); border: 1px solid var(--dash-feature-border); border-radius: 16px; overflow: hidden; }
 .reviewIntro { display: flex; align-items: flex-start; gap: 24px; padding: 34px; }
@@ -89,6 +90,7 @@
 
 /* Metric cards */
 .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin: 0; }
+.metrics[data-wide=true] > :first-child { grid-column: span 2; }
 .metricCard { color: inherit; text-decoration: none; display: grid; gap: 8px; align-content: start; min-width: 0; padding: 22px 24px; border: 1px solid var(--dash-border); border-radius: var(--dash-panel-radius); background: var(--dash-card); }
 .metricCard:hover { border-color: var(--dash-accent); }
 .metricCard:focus-visible { outline: 2px solid var(--dash-accent); outline-offset: 2px; }

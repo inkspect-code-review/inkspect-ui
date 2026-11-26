@@ -1,9 +1,9 @@
-import { parseHTML } from "linkedom";
+import { NodeFilter, parseHTML } from "linkedom";
 
 // Portals choose their browser effects when the component modules are loaded.
 const { window, document } = parseHTML("<html><head></head><body></body></html>");
 Object.assign(globalThis, {
-  window, document, self: window, location: new URL("https://example.test/dashboard"),
+  NodeFilter, HTMLInputElement: window.HTMLInputElement, window, document, self: window, location: new URL("https://example.test/dashboard"),
   HTMLFormElement: window.HTMLFormElement, HTMLElement: window.HTMLElement, Node: window.Node, CustomEvent: window.CustomEvent,
   MutationObserver: window.MutationObserver, getComputedStyle: (element: HTMLElement) => element.style,
   requestAnimationFrame: (callback: FrameRequestCallback) => setTimeout(() => callback(performance.now()), 0),

@@ -81,7 +81,11 @@ function Pagination({ page, loading, hasMore, onChange, label = "Page" }: { page
   </div>;
 }
 
-export function UsagePanel({ organizationId, members, presentation }: { organizationId: string; members: DashboardMember[]; presentation: UsagePresentation }) {
+const defaultCategoryFilters: readonly Category[] = ["all", "embedding", "review", "chat"];
+
+export function UsagePanel({ organizationId, members, presentation, categoryFilters = defaultCategoryFilters }: {
+  organizationId: string; members: DashboardMember[]; presentation: UsagePresentation; categoryFilters?: readonly Category[];
+}) {
   const [category, setCategory] = useState<Category>("all");
   const [days, setDays] = useState(30);
   const [page, setPage] = useState(1);
@@ -92,7 +96,7 @@ export function UsagePanel({ organizationId, members, presentation }: { organiza
   return <div className={styles.usage} aria-busy={loading}>
     <div className={styles.toolbar}>
       <div className={styles.filters} role="group" aria-label="Usage category">
-        {(["all", "embedding", "review", "chat"] as Category[]).map(value => <button key={value} aria-pressed={category === value} onClick={() => { setCategory(value); setPage(1); setExpanded(null); }}>{value === "all" ? "All usage" : usageCategoryLabel(value)}</button>)}
+        {categoryFilters.map(value => <button key={value} aria-pressed={category === value} onClick={() => { setCategory(value); setPage(1); setExpanded(null); }}>{value === "all" ? "All usage" : usageCategoryLabel(value)}</button>)}
       </div>
       <div className={styles.controls}>
         <label>Period<span className={styles.selectField}><select value={days} onChange={event => { setDays(Number(event.target.value)); setPage(1); setExpanded(null); }}><option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option></select></span></label>

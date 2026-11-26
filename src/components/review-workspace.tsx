@@ -8,6 +8,7 @@ import { productFetch } from "@inkspect/core/lib/api-client";
 import { reportBrowserError } from "@inkspect/core/lib/diagnostics/client";
 
 import Link from "next/link";
+import { Dialog } from "radix-ui";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { OpenPull, ReportResponse, ReviewJob, ReviewRepository } from "@inkspect/core/lib/review-types";
 import { subscribeReviews, type LiveState } from "@inkspect/core/lib/review-realtime";
@@ -25,7 +26,7 @@ import { Skeleton } from "./ui/skeleton";
 
 const terminal = (status: string) => ["completed", "failed", "cancelled"].includes(status);
 export function ReviewWorkspace({ organizationId, initialRepositories }: { organizationId: string; initialRepositories?: ReviewRepository[] }) {
-  const { ReviewAllowance, ReviewUsage } = useDashboardWidgets();
+  const { ReviewAllowance, ReviewUsage, ReviewRepositoryAction } = useDashboardWidgets();
   const edition = useDashboardEdition();
   const [repositories, setRepositories] = useState<ReviewRepository[]>(initialRepositories || []);
   const [historyRepositories, setHistoryRepositories] = useState<ReviewRepository[]>(initialRepositories || []);
@@ -44,9 +45,11 @@ export function ReviewWorkspace({ organizationId, initialRepositories }: { organ
   const [repositoriesReady, setRepositoriesReady] = useState(false);
   const [historyWarning, setHistoryWarning] = useState("");
   const selected = loadedRepository === repository ? reviews.find(r => r.job.id === selectedId) : undefined;
-  const activeRepository = composing ? repository || composerRepository : Number(selected?.snapshot.repository_id) || repository;
+  const currentRepository = historyRepositories.find(item => item.id === repository);
+  const chooseRepository = !repository || !!currentRepository?.archived;
+  const activeRepository = composing ? (chooseRepository ? composerRepository : repository) : Number(selected?.snapshot.repository_id) || repository;
   const [channel, setChannel] = useState(""), [live, setLive] = useState<LiveState>("connecting");
-  const [configuration, setConfiguration] = useState<{ repository: number; mode: string; activity: boolean; credentialId: string } | null>(null);
+  const [configuration, setConfiguration] = useState<{ repository: number; mode: string; activity: boolean; credentialId: string; composerJobs?: ReviewJob[] } | null>(null);
   const mode = configuration?.repository === activeRepository ? configuration.mode : "";
   const activityAvailable = !!selected;
   const refreshJobs = useRef<(() => void) | null>(null);
@@ -102,11 +105,14 @@ export function ReviewWorkspace({ organizationId, initialRepositories }: { organ
   useEffect(() => {
     if (!composing || !activeRepository) return;
     const controller = new AbortController();
-    scopedRequest("configuration", {}, undefined, controller.signal).then(value => {
-      if (!controller.signal.aborted) { setConfiguration({ repository: activeRepository, mode: value.execution_mode, activity: value.activity_available === true, credentialId: value.byok_credential_id || "" }); }
+    Promise.all([
+      scopedRequest("configuration", {}, undefined, controller.signal),
+      currentRepository?.archived ? scopedRequest("jobs", {}, undefined, controller.signal) : undefined,
+    ]).then(([value, history]) => {
+      if (!controller.signal.aborted) { setConfiguration({ repository: activeRepository, mode: value.execution_mode, activity: value.activity_available === true, credentialId: value.byok_credential_id || "", composerJobs: history?.reviews }); }
     }).catch(error => { reportBrowserError("browser.review.configuration", error); if (!controller.signal.aborted) setError(error.message); });
     return () => controller.abort();
-  }, [composing, activeRepository, scopedRequest, refresh]);
+  }, [composing, activeRepository, scopedRequest, refresh, currentRepository?.archived]);
  const [activityRevision,setActivityRevision]=useState(0);
   useEffect(() => {
     if (!channel) return;
@@ -150,11 +156,11 @@ export function ReviewWorkspace({ organizationId, initialRepositories }: { organ
   }, [selected?.job.id, selected?.job.status, detailRequest, findingStatusRevision, revision]);
   const pull = pulls.find((p) => p.number === pullNumber);
   // The composer leaves model selection to the server. Saved jobs contain the resolved model.
-  const action = reviewAction(reviews, pull, activeRepository, undefined, configuration?.credentialId || "");
+  const action = reviewAction(configuration?.composerJobs ?? reviews, pull, activeRepository, undefined, configuration?.credentialId || "");
   const historyReady = loadedRepository === repository && configuration?.repository === activeRepository && activeRepository > 0;
   async function start() {
     if (!pull || pull.draft || mutation.current || pullsLoading || !historyReady) return;
-    if (action.kind === "view") { setSelectedId(action.jobId); setComposing(false); return; }
+    if (action.kind === "view") { if (currentRepository?.archived) setRepository(activeRepository); setSelectedId(action.jobId); setComposing(false); return; }
     await submitReview(activeRepository, pull, action.kind === "retry" ? action.jobId : undefined);
   }
   async function submitReview(repositoryId: number, snapshot: Pick<OpenPull, "number" | "base_tip" | "head">, retryOf?: string) {
@@ -162,7 +168,7 @@ export function ReviewWorkspace({ organizationId, initialRepositories }: { organ
     mutation.current = true; setPending(true); setError("");
     try {
       const value: ReviewJob = await request("start", { repositoryId: String(repositoryId) }, { number: snapshot.number, base_tip: snapshot.base_tip, head: snapshot.head, ...(retryOf ? { retry_of: retryOf } : {}) });
-      if (mounted.current) { setReviews((rows) => newestReviews([value, ...rows.filter((r) => r.job.id !== value.job.id)])); setSelectedId(value.job.id); setComposing(false); setRevision((v) => v + 1); }
+      if (mounted.current) { if (currentRepository?.archived) setRepository(repositoryId); setReviews((rows) => newestReviews([value, ...rows.filter((r) => r.job.id !== value.job.id)])); setSelectedId(value.job.id); setComposing(false); setRevision((v) => v + 1); }
     } catch (error) { reportBrowserError("browser.review.workspace", error); if (mounted.current) setError((error as Error).message); }
     finally { mutation.current = false; if (mounted.current) setPending(false); }
   }
@@ -173,10 +179,10 @@ export function ReviewWorkspace({ organizationId, initialRepositories }: { organ
     catch (error) { reportBrowserError("browser.review.workspace", error); if (mounted.current) setError((error as Error).message); }
     finally { mutation.current = false; if (mounted.current) setPending(false); }
   }
-  const currentRepository = historyRepositories.find(item => item.id === repository);
   const selectedRepositoryConnected = !!selected && repositories.some(repo => String(repo.id) === selected.snapshot.repository_id);
-  const openComposer = () => {
-    if (currentRepository?.archived) { setRepository(0); setLoadedRepository(-1); }
+  const composerTrigger = useRef<HTMLButtonElement | null>(null);
+  const openComposer = (event: React.MouseEvent<HTMLButtonElement>) => {
+    composerTrigger.current = event.currentTarget;
     setComposing(true);
   };
   const reviewLatest = async (jobId: string) => {
@@ -205,10 +211,11 @@ export function ReviewWorkspace({ organizationId, initialRepositories }: { organ
       ? <ReviewUsage key={`${organizationId}:${selected.job.id}`} organizationId={organizationId} jobId={selected.job.id} />
       : <ReviewCostView cost={selected.billing_usage?.provider_cost} />)}
   </div> : null;
+  const actionRepository = ReviewRepositoryAction && repositories.find(repo => repo.id === (repository || Number(selected?.snapshot.repository_id)));
   const detailLoading = loading || !repositoriesReady || loadedRepository !== repository;
   return <section className={styles.workspace} aria-label="Reviews workspace">
     <aside className={styles.listPane} aria-label="Repositories and reviews">
-      <div className={styles.listHeading}><h1>Reviews</h1><button className={styles.iconButton} aria-label="Start a new review" title="Start a new review" disabled={detailLoading || !repositories.length || pending} onClick={openComposer}><Plus size={17} /></button></div>
+      <div className={styles.listHeading}><h1>Reviews</h1><button className={styles.iconButton} aria-label="Start a new review" title="Start a new review" disabled={detailLoading || !repositories.length || pending} aria-haspopup="dialog" onClick={openComposer}><Plus size={17} /></button></div>
       <div className={styles.repositoryPicker}>
         <label htmlFor="review-repository">Repository</label>
         <SearchableSelect id="review-repository" label="Repository" value={String(repository)} disabled={loading || pending}
@@ -233,12 +240,18 @@ export function ReviewWorkspace({ organizationId, initialRepositories }: { organ
       <footer className={styles.sidebarFooter}><span className={styles.live} data-live={live === "live"} role="status">{live === "live" ? "Live updates" : "Checking for updates"}</span><Link href="/dashboard?view=repositories">Manage repositories <ArrowUpRight size={13} /></Link></footer>
     </aside>
     <div className={styles.detailPane}>
-      <header className={styles.workspaceHeader}><span>{currentRepository?.full_name || "All repositories"}</span>{!detailLoading && <button onClick={() => composing ? setComposing(false) : openComposer()} disabled={!repositories.length || pending} aria-expanded={composing} aria-controls="review-composer"><Plus size={14} />New review</button>}</header>
+      <header className={styles.workspaceHeader}><div className={styles.headerRepository}><span>{actionRepository?.full_name || currentRepository?.full_name || "All repositories"}</span>
+        {ReviewRepositoryAction && actionRepository && <ReviewRepositoryAction key={actionRepository.id} repositoryId={actionRepository.id} repositoryName={actionRepository.full_name} />}
+      </div>{!detailLoading && <button aria-haspopup="dialog" onClick={openComposer} disabled={!repositories.length || pending}><Plus size={14} />New review</button>}</header>
       <Notification tone="error" message={error} action={{ label: "Retry loading reviews", onClick: () => { setError(""); setRefresh(v => v + 1); setRevision(v => v + 1); } }} />
       {detailLoading ? !error && <ReviewSkeleton /> : <>
-      {composing && <section id="review-composer" className={styles.composer} aria-labelledby="review-composer-title">
-        <div className={styles.toolbar}><div><h2 id="review-composer-title">Start a review</h2><p>Choose a repository and an open pull request.</p></div><button className={styles.iconButton} aria-label="Close new review" onClick={() => setComposing(false)}><X size={16} /></button></div>
-        {!repository && <div className={styles.composerRepository}><label htmlFor="new-review-repository">Repository for this review</label><SearchableSelect id="new-review-repository" label="Repository for this review" placeholder="Choose a repository" searchPlaceholder="Search repositories…" emptyMessage="No matching repositories." value={String(composerRepository)} disabled={pending} options={repositories.map(repo => ({ value: String(repo.id), label: repo.full_name }))} onValueChange={value => { setComposerRepository(Number(value)); setPage(1); setPulls([]); setPullNumber(0); }} /></div>}
+      <Dialog.Root open={composing} onOpenChange={open => { if (!pending) setComposing(open); }}>
+        <Dialog.Portal><Dialog.Overlay className={styles.composerOverlay} />
+        <Dialog.Content id="review-composer" className={styles.composer} aria-busy={pending} onCloseAutoFocus={event => {
+          if (composerTrigger.current?.isConnected) { event.preventDefault(); composerTrigger.current.focus(); }
+        }}>
+        <div className={styles.toolbar}><div><Dialog.Title>Start a review</Dialog.Title><Dialog.Description>Choose a repository and an open pull request.</Dialog.Description></div><Dialog.Close className={styles.iconButton} aria-label="Close new review" disabled={pending}><X size={16} /></Dialog.Close></div>
+        {chooseRepository && <div className={styles.composerRepository}><label htmlFor="new-review-repository">Repository for this review</label><SearchableSelect id="new-review-repository" label="Repository for this review" placeholder="Choose a repository" searchPlaceholder="Search repositories…" emptyMessage="No matching repositories." value={String(composerRepository)} disabled={pending} options={repositories.map(repo => ({ value: String(repo.id), label: repo.full_name }))} onValueChange={value => { setComposerRepository(Number(value)); setPage(1); setPulls([]); setPullNumber(0); }} /></div>}
         <div className={styles.selection} aria-busy={pullsLoading}>
           <div className={styles.selectionField}><label htmlFor="review-pull-request">Open pull request</label>
             <SearchableSelect id="review-pull-request" label="Open pull request" value={String(pullNumber)} disabled={!activeRepository || pending || pullsLoading}
@@ -253,11 +266,12 @@ export function ReviewWorkspace({ organizationId, initialRepositories }: { organ
         {pull && <div className={styles.snapshot}><a href={pull.url} target="_blank" rel="noreferrer">View #{pull.number} on GitHub</a><span>Base <code title={pull.base_tip}>{pull.base_tip.slice(0, 7)}</code> → Head <code title={pull.head}>{pull.head.slice(0, 7)}</code></span></div>}
         {(page > 1 || hasMore) && <div className={styles.pagination}><button disabled={page === 1 || pullsLoading} onClick={() => setPage(v => v - 1)}>Previous PRs</button><span>Page {page}</span><button disabled={!hasMore || pullsLoading} onClick={() => setPage(v => v + 1)}>More PRs</button></div>}
         {composing && ReviewAllowance && <ReviewAllowance key={`${organizationId}:${repository}:${revision}`} organizationId={organizationId} />}
-      </section>}
       {mode === "codex-development" && <p className={styles.notice}>Local Codex development mode. Live token caps and monetary cost are not enforced or measured.</p>}
+        </Dialog.Content></Dialog.Portal>
+      </Dialog.Root>
       <div className={styles.detail}>
-        {!selected ? <div className={styles.empty}><GitPullRequest size={28} /><h2>Your next review starts here</h2><p>{repositories.length ? "Choose a review from the sidebar, or review an open pull request." : "Connect a repository to start reviewing pull requests."}</p>{repositories.length ? <button className={styles.primary} onClick={openComposer}>Start a review</button> : <Link href="/dashboard?view=integrations">Connect GitHub</Link>}</div> : <>
-          <header className={styles.jobHeading}><div><div className={styles.jobTitle}><h2><ReviewPullTitle title={savedTitle} organizationId={!composing && selectedRepositoryConnected ? organizationId : undefined} repositoryId={selected.snapshot.repository_id} number={selected.snapshot.url.match(/\/pull\/([1-9]\d*)$/)?.[1]} fallback={`Pull request #${selected.snapshot.url.split("/").at(-1)}`} /></h2><span className={styles.status} data-status={selected.job.status}>{selected.job.status.replaceAll("_", " ")}</span></div><div className={styles.jobMeta}><a href={selected.snapshot.url} target="_blank" rel="noreferrer">PR #{selected.snapshot.url.split("/").at(-1)} <ArrowUpRight size={12} /></a><time dateTime={selected.job.created_at}>{new Date(selected.job.created_at).toLocaleString()}</time><code title={selected.snapshot.head}>{selected.snapshot.head.slice(0, 7)}</code></div></div>{!terminal(selected.job.status) && <button disabled={pending || selected.job.cancel_requested} onClick={cancel}>{selected.job.cancel_requested ? "Cancelling…" : "Cancel review"}</button>}</header>
+        {!selected ? <div className={styles.empty}><GitPullRequest size={28} /><h2>Your next review starts here</h2><p>{repositories.length ? "Choose a review from the sidebar, or review an open pull request." : "Connect a repository to start reviewing pull requests."}</p>{repositories.length ? <button className={styles.primary} aria-haspopup="dialog" onClick={openComposer}>Start a review</button> : <Link href="/dashboard?view=integrations">Connect GitHub</Link>}</div> : <>
+          <header className={styles.jobHeading}><div><div className={styles.jobTitle}><h2><ReviewPullTitle title={savedTitle} organizationId={selectedRepositoryConnected ? organizationId : undefined} repositoryId={selected.snapshot.repository_id} number={selected.snapshot.url.match(/\/pull\/([1-9]\d*)$/)?.[1]} fallback={`Pull request #${selected.snapshot.url.split("/").at(-1)}`} /></h2><span className={styles.status} data-status={selected.job.status}>{selected.job.status.replaceAll("_", " ")}</span></div><div className={styles.jobMeta}><a href={selected.snapshot.url} target="_blank" rel="noreferrer">PR #{selected.snapshot.url.split("/").at(-1)} <ArrowUpRight size={12} /></a><time dateTime={selected.job.created_at}>{new Date(selected.job.created_at).toLocaleString()}</time><code title={selected.snapshot.head}>{selected.snapshot.head.slice(0, 7)}</code></div></div>{!terminal(selected.job.status) && <button disabled={pending || selected.job.cancel_requested} onClick={cancel}>{selected.job.cancel_requested ? "Cancelling…" : "Cancel review"}</button>}</header>
           {!selectedRepositoryConnected && <p className={styles.notice}>This repository is no longer connected. Your saved review is available to read.</p>}
           {selected.job.status === "completed" ? report?.jobId === selected.job.id ? <ReviewReportView key={selected.job.id} organizationId={organizationId} value={report.value} details={runDetails} fix={selectedRepositoryConnected ? <ReviewFix key={selected.job.id} openFindingCount={selected.finding_summary?.open ?? summarizeOpenFindings(report.value.report.findings, report.value.finding_statuses).open} jobId={selected.job.id} pullUrl={selected.snapshot.url} request={detailRequest} onReviewLatest={reviewLatest} /> : undefined} /> : <ReviewSkeleton heading={false} /> : <div className={styles.runState}><h3>{selected.job.status === "failed" ? "Review could not finish" : selected.job.status === "cancelled" ? "Review cancelled" : selected.job.status === "paused" ? "Review paused" : selected.job.status === "running" ? "Review in progress" : "Review queued"}</h3><p>{selected.job.status === "paused" ? edition.reviewPausedMessage : pausedAhead ? `Waiting for the paused review of PR #${pausedAhead.snapshot.url.split("/").at(-1)} to resume.` : selected.job.status === "queued" ? "Waiting for a review worker to start." : terminal(selected.job.status) ? "Start a new review of this pull request when you’re ready to try again." : "You can leave this page. The review continues in the background."}</p><Notification tone="error" message={selected.error_message} notificationKey={selected.job.id} />
             {terminal(selected.job.status) && selectedRepositoryConnected && Number.isSafeInteger(selectedPullNumber) && (

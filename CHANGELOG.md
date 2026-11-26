@@ -10,7 +10,25 @@ as appropriate. The package's `0.1.0` version is not a claim of a tagged release
 
 #### Added
 
+- Support repository actions in the repository detail header and configurable category filters in Usage.
+
+- Support repository actions in Reviews, a dashboard widget below Review activity, and links to repository-filtered findings.
+- Allow an overview widget to occupy two metric columns.
 - Display the X sign-in option and icon when enabled.
+
+#### Changed
+
+- Select custom review dates in a range calendar on the Findings page.
+
+- Show findings in a daily activity feed with connected severity markers, group counts, relative times, inline resolution controls and file details on demand.
+
+- Display notifications with the shadcn Base UI toast stack and open the new review composer in a modal.
+
+#### Fixed
+
+- Align finding status, resolution details, actions and timestamps on wide timeline rows.
+
+- Keep overview widgets and review settings mounted when the workspace receives an updated snapshot.
 
 ### 2026-11-25
 

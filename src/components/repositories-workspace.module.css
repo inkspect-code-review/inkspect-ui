@@ -42,7 +42,8 @@
 .repoOwner { display: block; color: var(--dash-muted); font-size: 12px; margin-bottom: 7px; }
 .detailHeader h2 { margin: 0 0 14px; font-size: clamp(22px, 2.5vw, 32px); letter-spacing: -1px; line-height: 1.2; overflow-wrap: anywhere; }
 .detailHeader > div { min-width: 0; }
-.detailHeader > a { flex-shrink: 0; }
+.detailActions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.detailActions > * { flex-shrink: 0; }
 .meta { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; color: var(--dash-muted); font-size: 11px; }
 .meta span { display: inline-flex; align-items: center; gap: 5px; }
 .meta svg { width: 13px; height: 13px; }

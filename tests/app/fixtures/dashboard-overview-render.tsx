@@ -11,7 +11,7 @@ import { DashboardWidgetsProvider } from "../../../src/components/dashboard-edit
 import { ReviewFix } from "../../../src/components/review-fix";
 import { ReviewWorkspace } from "../../../src/components/review-workspace";
 import { RepositoriesWorkspace } from "../../../src/components/repositories-workspace";
-import { FindingsPanel } from "../../../src/components/findings-panel";
+import { FindingsPanel, FindingsTimeline } from "../../../src/components/findings-panel";
 import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime";
 
 const repositories = [{ id: 11, fullName: "example/first", private: false }, { id: 22, fullName: "example/second", private: true }];
@@ -46,6 +46,15 @@ test("an optional overview card leads the dashboard summary row", () => {
   }
 });
 
+test("a wide overview widget shares the row with completed reviews and open findings", () => {
+  const html = renderToStaticMarkup(<DashboardWidgetsProvider value={{ overviewCard: <aside id="extra-card" />, wideOverviewCard: true }}>
+    <DashboardOverview organizationId="workspace-one" summary={summary} initialOverview={populated} />
+  </DashboardWidgetsProvider>);
+  const row = parseHTML(html).document.querySelector('nav[data-wide="true"]');
+  assert.equal(row?.firstElementChild?.id, "extra-card");
+  assert.deepEqual(Array.from(row!.querySelectorAll("a"), card => card.firstElementChild?.textContent), ["Completed reviews", "Open findings"]);
+});
+
 test("each dashboard metric links to its workspace view", () => {
   const { document } = parseHTML(render(populated));
   const cards = document.querySelectorAll('nav[aria-label="Review metrics"] > a');
@@ -57,6 +66,38 @@ test("each dashboard metric links to its workspace view", () => {
   ]);
 });
 
+test("the findings timeline groups local review days and preserves server sort order", t => {
+  t.mock.timers.enable({ apis: ["Date"], now: new Date("2026-11-26T23:05:00") });
+  const dates = ["2026-11-26T23:00:00", "2026-11-26T00:01:00", "2026-11-25T23:59:00", "2026-11-26T08:00:00", "invalid"];
+  const findings = dates.map((createdAt, ordinal) => ({
+    repositoryId: 11, repository: "example/first", id: "F-test", jobId: "J-test", ordinal: ordinal + 1,
+    title: "Finding " + ordinal, path: "file.ts", line: 4, pullNumber: 1, advisory: false, severity: "high", createdAt,
+  }));
+  const states = [
+    { status: "open", source: "latest_review" },
+    { status: "resolved", source: "manual" },
+    { status: "resolved", source: "verified_fix" },
+  ] as const;
+  const rows = findings.map((finding, i) => ({ ...finding, resolution: states[i] }));
+  const html = renderToStaticMarkup(<FindingsTimeline organizationId="workspace-one" findings={rows} />);
+  const { document } = parseHTML(html);
+  const groups = [...document.querySelectorAll('ol[aria-label="Finding results"] > li')];
+  assert.deepEqual(groups.map(group => group.querySelectorAll("h4").length), [2, 1, 1, 1]);
+  assert.deepEqual(groups.map(group => group.querySelector("h3")?.textContent), ["Today", "Yesterday", "Today", "Unknown date"]);
+  assert.deepEqual(groups.map(group => group.querySelector("header > span")?.textContent), ["2 findings", "1 finding", "1 finding", "1 finding"]);
+  const items = [...document.querySelectorAll('ol[aria-label="Finding results"] ul > li')];
+  assert.equal(items[0].querySelector('[data-status="open"]')?.textContent, "Open");
+  assert.equal(items[0].querySelector('button[aria-label^="Mark as resolved"]')?.textContent, "Mark resolved");
+  assert.equal(items[1].querySelector('[data-status="resolved"]')?.textContent, "Resolved");
+  assert.ok(items[1].querySelector('button[aria-label^="Undo manual resolution"]'));
+  assert.equal(items[2].querySelector('button[aria-label^="Undo manual resolution"]'), null);
+  assert.match(items[3].textContent ?? "", /Status unavailable/);
+  assert.equal(groups[0].querySelector("time")?.textContent, "5m");
+  assert.equal(groups[0].querySelector('[data-severity="high"] > span')?.textContent, "P1");
+  assert.equal(groups[0].querySelectorAll('button[aria-haspopup="dialog"]').length, 2);
+  assert.deepEqual([...document.querySelectorAll("time")].map(time => time.getAttribute("dateTime")), dates.slice(0, 4));
+});
+
 test("findings links select the requested status and default to all history", () => {
   for (const [query, label] of [["status=open", "Open"], ["", "All history"], ["status=invalid", "All history"]]) {
     const html = renderToStaticMarkup(<SearchParamsContext.Provider value={new URLSearchParams(query)}>
@@ -66,11 +107,30 @@ test("findings links select the requested status and default to all history", ()
   }
 });
 
+test("findings links select a connected repository and ignore unknown IDs", () => {
+  for (const [query, label] of [["repositoryId=11", "example/first"], ["repositoryId=999", "All repositories"]]) {
+    const html = renderToStaticMarkup(<SearchParamsContext.Provider value={new URLSearchParams(query)}>
+      <FindingsPanel organizationId="workspace-one" workspaceName="Example" connected canManage repositories={[{ id: 11, full_name: "example/first", private: false }]} />
+    </SearchParamsContext.Provider>);
+    assert.equal(parseHTML(html).document.querySelector("#findings-repository")?.getAttribute("aria-label"), `Repository: ${label}`);
+  }
+});
+
 test("dashboard repository rows link to their own details", () => {
   const html = renderToStaticMarkup(<DashboardOverview organizationId="workspace-one" summary={summary} initialOverview={empty} github={{ configured: true, canManage: true, dismissed: false, connections: [], repositories }} />);
   for (const repo of repositories) {
     assert.match(html, new RegExp(`<a[^>]+href="/dashboard\\?view=repositories&amp;repositoryId=${repo.id}"[^>]*>[^]*?<strong>${repo.fullName}</strong>[^]*?</a>`));
   }
+});
+
+test("repository header action receives the selected repository", () => {
+  const action = ({ repositoryId, repositoryName }: { repositoryId: number; repositoryName: string }) => <button data-repository={repositoryId}>{repositoryName}</button>;
+  const html = renderToStaticMarkup(<DashboardWidgetsProvider value={{ ReviewRepositoryAction: action }}>
+    <SearchParamsContext.Provider value={new URLSearchParams("repositoryId=22")}>
+      <RepositoriesWorkspace organizationId="workspace-one" repositories={repositories} canManage={false} />
+    </SearchParamsContext.Provider>
+  </DashboardWidgetsProvider>);
+  assert.equal(parseHTML(html).document.querySelector('header button[data-repository="22"]')?.textContent, "example/second");
 });
 
 test("repository URLs select the requested repository and fall back for invalid links", () => {
@@ -164,6 +224,36 @@ test("the sidebar shows saved workspace review settings and keeps the settings l
       if (id === "one") assert.equal(panel.querySelectorAll('[role="switch"][disabled]').length, 2);
       assert.equal(panel.querySelector("a")?.getAttribute("href"), "/dashboard?view=settings");
     }
+  } finally { await act(async () => root.unmount()); }
+});
+
+test("focus and new server snapshots preserve workspace controls and drafts", async t => {
+  const doc = dashboardDocument(t);
+  let reads = 0;
+  t.mock.method(globalThis, "fetch", async (url: string) => {
+    assert.match(url, /review-settings/);
+    reads++;
+    return Response.json({ automatic: true, auto_fix: false, check_threshold: "P2", can_manage: true });
+  });
+  const root = createRoot(doc.getElementById("dashboard")!);
+  const show = (snapshot: InitialReviewOverview) => act(async () => root.render(
+    <DashboardWidgetsProvider value={{ overviewCard: <input aria-label="Widget draft" /> }}>
+      <DashboardOverview organizationId="one" summary={summary} initialOverview={{ ...snapshot, realtime_channel: "workspace-one" }} />
+    </DashboardWidgetsProvider>
+  ));
+  try {
+    await show(empty);
+    const draft = doc.querySelector<HTMLInputElement>('input[aria-label="Widget draft"]')!;
+    const toggle = doc.querySelector("#dashboard-automatic");
+    assert.ok(toggle);
+    draft.value = "draft";
+    await act(async () => { window.dispatchEvent(new window.Event("focus")); });
+    await show({ ...populated, asOf: "2026-11-18T12:00:00Z" });
+    assert.equal(doc.querySelector('input[aria-label="Widget draft"]'), draft);
+    assert.equal(draft.value, "draft");
+    assert.equal(doc.querySelector("#dashboard-automatic"), toggle);
+    assert.equal(reads, 1);
+    assert.match(doc.querySelector('nav[aria-label="Workspace overview"]')!.textContent!, /Completed reviews/);
   } finally { await act(async () => root.unmount()); }
 });
 
@@ -266,6 +356,9 @@ test("the review composer retries the failed job when the server selected its mo
     await act(async () => button("New review").click());
     await act(async () => {
       const composer = document.querySelector("#review-composer")!;
+      assert.equal(composer.getAttribute("role"), "dialog");
+      assert.ok(!document.getElementById("dashboard")!.contains(composer));
+      assert.ok(document.querySelector('nav[aria-label="Review history"]'));
       Array.from(composer.querySelectorAll("button")).find(item => item.textContent === "Retry review")!.click();
     });
     assert.deepEqual(submissions, [{ number: pull.number, base_tip: pull.base_tip, head: pull.head, retry_of: previous.job.id }]);
@@ -289,7 +382,7 @@ test("retrying from a failed review confirms its repository, PR and commit witho
     switch (action) {
       case "repositories": return Response.json({ repositories: repos });
       case "history": return Response.json({ reviews: submissions.length ? [next, failed] : [failed] });
-      case "activity": return Response.json({ events: [], has_more: false });
+      case "activity": return Response.json({ events: [], next_cursor: 0, has_more: false });
       case "start":
         submissions.push([query.get("repositoryId"), JSON.parse(String(init.body))]);
         return Response.json(next);

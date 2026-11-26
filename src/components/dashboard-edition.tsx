@@ -9,6 +9,9 @@ export function useDashboardEdition() { return useContext(EditionContext); }
 
 const WidgetsContext = createContext<{
   overviewCard?: ReactNode;
+  afterReviewActivity?: ReactNode;
+  ReviewRepositoryAction?: ComponentType<{ repositoryId: number; repositoryName: string }>;
+  wideOverviewCard?: boolean;
   ReviewUsage?: ComponentType<{ organizationId: string; jobId: string }>;
   ReviewAllowance?: ComponentType<{ organizationId: string }>;
   PublicRepositoryNotice?: ComponentType<{ repositoryId: string }>;
