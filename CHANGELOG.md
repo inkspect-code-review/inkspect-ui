@@ -18,6 +18,8 @@ as appropriate. The package's `0.1.0` version is not a claim of a tagged release
 
 #### Changed
 
+- Simplify dashboard setup and group review settings and exports in the README.
+
 - Select custom review dates in a range calendar on the Findings page.
 
 - Show findings in a daily activity feed with connected severity markers, group counts, relative times, inline resolution controls and file details on demand.
