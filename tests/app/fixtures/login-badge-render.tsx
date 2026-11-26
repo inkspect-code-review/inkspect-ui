@@ -7,6 +7,8 @@ import { LoginForm } from "../../../src/components/login-form";
 test("last used badge is rendered on only the matching method", () => {
   const render = (props = {}) => renderToStaticMarkup(createElement(LoginForm, props));
   assert.doesNotMatch(render(), /Last used/);
+  assert.match(render({ lastUsedMethod: "twitter", enabledProviders: ["twitter"] }), /Continue with X<span class="last-used-badge">Last used/);
+  assert.doesNotMatch(render({ enabledProviders: ["github"] }), /Continue with X/);
   for (const lastUsedMethod of ["github", "google", "microsoft", "apple", "passkey", "email"]) {
     const html = render({ lastUsedMethod });
     assert.equal(html.match(/Last used/g)?.length, 1);

@@ -1,6 +1,6 @@
 import type { SVGProps } from "react";
 
-export type Provider = "github" | "gitlab" | "bitbucket" | "linear" | "jira" | "notion" | "google" | "microsoft" | "apple";
+export type Provider = "github" | "gitlab" | "bitbucket" | "linear" | "jira" | "notion" | "google" | "microsoft" | "apple" | "twitter";
 
 export function ProviderIcon({ provider, ...props }: SVGProps<SVGSVGElement> & { provider: Provider }) {
   return <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
@@ -13,5 +13,6 @@ export function ProviderIcon({ provider, ...props }: SVGProps<SVGSVGElement> & {
     {provider === "google" && <><path fill="#4285F4" d="M21.6 12.23c0-.71-.06-1.39-.18-2.05H12v3.88h5.38a4.6 4.6 0 0 1-1.99 3.02v2.51h3.22c1.88-1.74 2.99-4.3 2.99-7.36Z" /><path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.61-2.41l-3.22-2.51c-.9.6-2.05.97-3.39.97-2.6 0-4.8-1.76-5.59-4.12H3.09v2.59A10 10 0 0 0 12 22Z" /><path fill="#FBBC05" d="M6.41 13.93a6 6 0 0 1 0-3.86V7.48H3.09a10 10 0 0 0 0 9.04l3.32-2.59Z" /><path fill="#EA4335" d="M12 5.95c1.47 0 2.79.51 3.82 1.51l2.87-2.87A9.62 9.62 0 0 0 12 2a10 10 0 0 0-8.91 5.48l3.32 2.59C7.2 7.71 9.4 5.95 12 5.95Z" /></>}
     {provider === "microsoft" && <><path fill="#F25022" d="M2 2h9.5v9.5H2z" /><path fill="#7FBA00" d="M12.5 2H22v9.5h-9.5z" /><path fill="#00A4EF" d="M2 12.5h9.5V22H2z" /><path fill="#FFB900" d="M12.5 12.5H22V22h-9.5z" /></>}
     {provider === "apple" && <path d="M17.05 12.54c.02 3.13 2.75 4.17 2.78 4.18-.02.07-.44 1.49-1.44 2.96-.87 1.27-1.77 2.54-3.19 2.56-1.4.03-1.85-.83-3.45-.83s-2.1.81-3.43.86c-1.37.05-2.42-1.38-3.3-2.65-1.79-2.6-3.16-7.35-1.32-10.56a5.13 5.13 0 0 1 4.33-2.63c1.35-.02 2.63.92 3.45.92.83 0 2.38-1.14 4.02-.97.68.03 2.59.28 3.82 2.08-.1.06-2.28 1.32-2.27 4.08ZM14.42 4.63c.73-.88 1.22-2.1 1.09-3.32-1.05.04-2.32.7-3.08 1.58-.68.78-1.27 2.02-1.11 3.21 1.17.09 2.37-.6 3.1-1.47Z" />}
+    {provider === "twitter" && <path d="M18.9 2H22l-6.8 7.8L23.2 22H17l-4.9-7.4L5.6 22H2.5l8.2-9.4L2 2h6.4l5.4 7.1L18.9 2ZM17.9 20h1.7L7.4 3.9H5.6L17.9 20Z" />}
   </svg>;
 }
