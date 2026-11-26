@@ -18,7 +18,7 @@ as appropriate. The package's `0.1.0` version is not a claim of a tagged release
 
 #### Changed
 
-- Simplify dashboard setup and group review settings and exports in the README.
+- Document the Reviews request path, its rendering test and local dashboard setup in the README.
 
 - Select custom review dates in a range calendar on the Findings page.
 

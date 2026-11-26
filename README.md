@@ -1,26 +1,39 @@
 # Inkspect UI
 
-The self-hosted Next.js dashboard and shared Inkspect UI components.
+`@inkspect/ui` contains the self-hosted Next.js dashboard and its shared React components. The dashboard runs alongside the Inkspect API. To install both services and the review workers together, use the [Docker Compose guide](https://github.com/inkspect-code-review/inkspect#install).
 
-## Local development
+## How a review reaches the screen
 
-1. Use Node.js 22.13 or newer. Run `npm ci` and copy `.env.example` to `.env.local`.
-2. Match the API’s database, auth origin and secret. Set `INKSPECT_API_ORIGIN`
-   before building and leave `NEXT_PUBLIC_API_ORIGIN` empty for same-origin requests.
-3. Configure SMTP or OAuth for sign-in, then run `npm run dev`. Production sign-in requires HTTPS.
+Follow a request to `/dashboard?view=reviews` through three parts of the application.
 
-Run `npm run audit`, `npm test` and `npm run build` to check the dashboard.
-Use `npm start` to serve the production build.
+| Layer | Responsibility |
+| --- | --- |
+| [Workspace pages](src/lib/workspace-pages.tsx) | On the server, validate the session, resolve the active workspace from the user’s memberships and select the requested dashboard section. |
+| [Self-hosted dashboard](src/self-hosted/dashboard.tsx) | Supply the edition’s navigation and panels to the shared [dashboard shell](src/components/dashboard-shell.tsx). The shell renders `ReviewWorkspace` for the Reviews section. |
+| [Review workspace](src/components/review-workspace.tsx) | Load reviews from `/api/reviews` and track the selected run. When its report is ready, pass it to [ReviewReportView](src/components/review-report.tsx) to render findings, scores and evidence. |
 
-## Review settings and exports
+Next.js handles sign-in in this app. Review requests go through a same-origin rewrite to the API. If you change where those requests go, edit [next.config.ts](next.config.ts). If you change how a finding looks, start in `ReviewReportView` and run its rendering test:
 
-- **Settings → Workspace → Automatic reviews** lets owners and admins choose the
-  lowest severity that fails a new check (default P0) and ignore up to 100 GitHub
-  logins. Include the full login for bots, such as `dependabot[bot]`. Ignored
-  authors remain eligible for manually requested reviews and fixes.
-- **Dashboard → Reviews → Overview → Download SARIF** exports a completed review as
-  SARIF 2.1.0, including zero-finding reports. The local download records the
-  revision, repository-relative paths, incomplete coverage and excluded file counts.
-  Finding fingerprints use the path, normalized title and occurrence in source order.
+```sh
+node --import tsx --test tests/app/review-report.test.ts
+```
 
-[MIT license](LICENSE) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Code of Conduct](CODE_OF_CONDUCT.md) · [Support](SUPPORT.md) · [Security](SECURITY.md)
+## Run locally
+
+Use Node.js 22.13 or newer and a running [Inkspect API](https://github.com/inkspect-code-review/inkspect-api) with its PostgreSQL migrations applied. From this checkout:
+
+```sh
+npm ci
+cp .env.example .env.local
+```
+
+In `.env.local`, use the API’s `DATABASE_URL` and `BETTER_AUTH_SECRET`. Set the same `BETTER_AUTH_URL` in both services and configure GitHub OAuth or SMTP for sign-in. For the default local ports, use:
+
+```dotenv
+BETTER_AUTH_URL=http://127.0.0.1:3002
+INKSPECT_API_ORIGIN=http://127.0.0.1:3003
+```
+
+Run `npm run dev` and open `http://127.0.0.1:3002`.
+
+[Contributing and checks](CONTRIBUTING.md) · [MIT license](LICENSE)
