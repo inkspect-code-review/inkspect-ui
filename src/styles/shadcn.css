@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is([data-dashboard-theme="classic"] *, [data-dashboard-theme="landing-dark"] *, [data-dashboard-theme="chatgpt-desktop"] *));
+@custom-variant dark (&:is([data-dashboard-theme="classic"] *, [data-dashboard-theme="landing-dark"] *, [data-dashboard-theme="chatgpt-desktop"] *, [data-dashboard-theme="graphite"] *));
 
 @theme inline {
   --font-sans: "Manrope Variable", Arial, sans-serif;
@@ -62,7 +62,7 @@
   [data-slot="sidebar-wrapper"], [data-slot="sheet-content"], [data-slot="dropdown-menu-content"] {
     color-scheme: var(--dash-scheme);
   }
-  [data-slot="sidebar-wrapper"] { color: var(--foreground); }
+  [data-slot="sidebar-wrapper"] { background-color: var(--dash-bg); color: var(--foreground); }
   [data-slot="sidebar-input"] { min-height: 0; }
 }
 

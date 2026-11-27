@@ -26,7 +26,7 @@ import { Skeleton } from "./ui/skeleton";
 
 const terminal = (status: string) => ["completed", "failed", "cancelled"].includes(status);
 export function ReviewWorkspace({ organizationId, initialRepositories }: { organizationId: string; initialRepositories?: ReviewRepository[] }) {
-  const { ReviewAllowance, ReviewUsage, ReviewRepositoryAction } = useDashboardWidgets();
+  const { ReviewAllowance, ReviewUsage, ReviewRepositoryAction, confirmReview, historySupplement } = useDashboardWidgets();
   const edition = useDashboardEdition();
   const [repositories, setRepositories] = useState<ReviewRepository[]>(initialRepositories || []);
   const [historyRepositories, setHistoryRepositories] = useState<ReviewRepository[]>(initialRepositories || []);
@@ -154,20 +154,25 @@ export function ReviewWorkspace({ organizationId, initialRepositories }: { organ
     if (selected?.job.status === "completed") detailRequest("report", { jobId: selected.job.id }, undefined, controller.signal).then(value => { if (!controller.signal.aborted) setReport({ jobId: selected.job.id, value }); }).catch((error) => { reportBrowserError("browser.review.workspace", error); if (!controller.signal.aborted) setError(error.message); });
     return () => controller.abort();
   }, [selected?.job.id, selected?.job.status, detailRequest, findingStatusRevision, revision]);
+  const [confirming,setConfirming] = useState(false);
+  const confirmation = confirmReview?.(activeRepository);
   const pull = pulls.find((p) => p.number === pullNumber);
   // The composer leaves model selection to the server. Saved jobs contain the resolved model.
-  const action = reviewAction(configuration?.composerJobs ?? reviews, pull, activeRepository, undefined, configuration?.credentialId || "");
+  const action = reviewAction(configuration?.composerJobs ?? reviews, pull, activeRepository, undefined, confirmation ? "" : configuration?.credentialId || "");
+  const repeatOf = confirmation && action.kind === "view" && (configuration?.composerJobs ?? reviews).some(r=>r.job.id===action.jobId && r.job.status==="completed") ? action.jobId : undefined;
   const historyReady = loadedRepository === repository && configuration?.repository === activeRepository && activeRepository > 0;
-  async function start() {
+  async function start(confirmed = false) {
     if (!pull || pull.draft || mutation.current || pullsLoading || !historyReady) return;
-    if (action.kind === "view") { if (currentRepository?.archived) setRepository(activeRepository); setSelectedId(action.jobId); setComposing(false); return; }
-    await submitReview(activeRepository, pull, action.kind === "retry" ? action.jobId : undefined);
+    if (action.kind === "view" && !repeatOf) { if (currentRepository?.archived) setRepository(activeRepository); setSelectedId(action.jobId); setComposing(false); return; }
+    if (confirmation && !confirmed) { setConfirming(true); return; }
+    await submitReview(activeRepository, pull, action.kind === "retry" ? action.jobId : undefined, confirmed, repeatOf);
+    setConfirming(false);
   }
-  async function submitReview(repositoryId: number, snapshot: Pick<OpenPull, "number" | "base_tip" | "head">, retryOf?: string) {
+  async function submitReview(repositoryId: number, snapshot: Pick<OpenPull, "number" | "base_tip" | "head">, retryOf?: string, confirmed = false, repeat?:string) {
     if (mutation.current) return;
     mutation.current = true; setPending(true); setError("");
     try {
-      const value: ReviewJob = await request("start", { repositoryId: String(repositoryId) }, { number: snapshot.number, base_tip: snapshot.base_tip, head: snapshot.head, ...(retryOf ? { retry_of: retryOf } : {}) });
+      const value: ReviewJob = await request("start", { repositoryId: String(repositoryId), ...(confirmed ? { confirmHead:snapshot.head, ...(repeat ? {repeatOf:repeat} : {}) } : {}) }, { number: snapshot.number, base_tip: snapshot.base_tip, head: snapshot.head, ...(retryOf ? { retry_of: retryOf } : {}) });
       if (mounted.current) { if (currentRepository?.archived) setRepository(repositoryId); setReviews((rows) => newestReviews([value, ...rows.filter((r) => r.job.id !== value.job.id)])); setSelectedId(value.job.id); setComposing(false); setRevision((v) => v + 1); }
     } catch (error) { reportBrowserError("browser.review.workspace", error); if (mounted.current) setError((error as Error).message); }
     finally { mutation.current = false; if (mounted.current) setPending(false); }
@@ -226,7 +231,7 @@ export function ReviewWorkspace({ organizationId, initialRepositories }: { organ
       <div className={styles.historyHeading}><h2>Review history</h2><span>Newest first</span></div>
       <Notification tone="info" message={historyWarning} />
       <nav className={styles.history} aria-label="Review history" aria-busy={!repositoriesReady || loadedRepository !== repository}>
-        {!repositoriesReady || loadedRepository !== repository ? <p>Loading reviews…</p> : !visibleReviews.length ? <p>No reviews yet. Start with an open pull request.</p> : <ol>{visibleReviews.map((row, index) => {
+        {!repositoriesReady || loadedRepository !== repository ? <p>Loading reviews…</p> : !visibleReviews.length ? <p>{historySupplement ? "No workspace reviews yet." : "No reviews yet. Start with an open pull request."}</p> : <ol>{visibleReviews.map((row, index) => {
           const summary = row.finding_summary;
           return <li key={row.job.id}>
           <button aria-current={row.job.id === selectedId ? "true" : undefined} data-findings-tone={summary?.open ? summary.urgent ? "danger" : "warning" : undefined} onClick={() => { setSelectedId(row.job.id); setComposing(false); }}>
@@ -236,6 +241,7 @@ export function ReviewWorkspace({ organizationId, initialRepositories }: { organ
             {!!summary?.open && <span className={styles.historyFindings}>{summary.open} open {summary.open === 1 ? "finding" : "findings"}</span>}
           </button>
         </li>; })}</ol>}
+        {historySupplement?.(repository)}
       </nav>
       <footer className={styles.sidebarFooter}><span className={styles.live} data-live={live === "live"} role="status">{live === "live" ? "Live updates" : "Checking for updates"}</span><Link href="/dashboard?view=repositories">Manage repositories <ArrowUpRight size={13} /></Link></footer>
     </aside>
@@ -261,8 +267,11 @@ export function ReviewWorkspace({ organizationId, initialRepositories }: { organ
               footer={(page > 1 || hasMore) ? `Searching page ${page}. Use the page controls to see other pull requests.` : undefined}
               onValueChange={value => setPullNumber(Number(value))} />
           </div>
-          <button className={styles.primary} onClick={() => void start()} disabled={!pull || pull.draft || pending || pullsLoading || !historyReady}>{pending ? "Please wait…" : !historyReady ? "Loading reviews…" : action.label}</button>
+          <button className={styles.primary} onClick={() => void start()} disabled={!pull || pull.draft || pending || pullsLoading || !historyReady}>{pending ? "Please wait…" : !historyReady ? "Loading reviews…" : confirmation && (action.kind !== "view" || repeatOf) ? confirmation.label : action.label}</button>
         </div>
+        {pull && confirmation && <ConfirmationDialog open={confirming} onOpenChange={setConfirming} title={confirmation.label}
+          description={`${confirmation.workspace} · ${repositories.find(r=>r.id===activeRepository)?.full_name} #${pull.number} · ${pull.head.slice(0,7)}. This authorization applies to this review only.`}
+          confirmLabel={confirmation.label} busy={pending} onConfirm={()=>void start(true)} />}
         {pull && <div className={styles.snapshot}><a href={pull.url} target="_blank" rel="noreferrer">View #{pull.number} on GitHub</a><span>Base <code title={pull.base_tip}>{pull.base_tip.slice(0, 7)}</code> → Head <code title={pull.head}>{pull.head.slice(0, 7)}</code></span></div>}
         {(page > 1 || hasMore) && <div className={styles.pagination}><button disabled={page === 1 || pullsLoading} onClick={() => setPage(v => v - 1)}>Previous PRs</button><span>Page {page}</span><button disabled={!hasMore || pullsLoading} onClick={() => setPage(v => v + 1)}>More PRs</button></div>}
         {composing && ReviewAllowance && <ReviewAllowance key={`${organizationId}:${repository}:${revision}`} organizationId={organizationId} />}
@@ -277,11 +286,11 @@ export function ReviewWorkspace({ organizationId, initialRepositories }: { organ
             {terminal(selected.job.status) && selectedRepositoryConnected && Number.isSafeInteger(selectedPullNumber) && (
               <ConfirmationDialog key={selected.job.id} open={retryJobId === selected.job.id} onOpenChange={open => setRetryJobId(open ? selected.job.id : null)}
                 title={`Retry review for PR #${selectedPullNumber}?`} confirmLabel="Start review" busy={pending}
-                description={`This will start a new review at commit ${selected.snapshot.head.slice(0, 7)}.`}
+                description={`${confirmReview?.(Number(selected.snapshot.repository_id))?.label || "Start a new review"} for PR #${selectedPullNumber} at commit ${selected.snapshot.head.slice(0, 7)}.`}
                 trigger={<button type="button" disabled={pending}>Retry review</button>}
                 onConfirm={async () => {
                   if (retryJobId !== selected.job.id || mutation.current) return;
-                  await submitReview(Number(selected.snapshot.repository_id), { number: selectedPullNumber, base_tip: selected.snapshot.base_tip, head: selected.snapshot.head }, selected.job.id);
+                  await submitReview(Number(selected.snapshot.repository_id), { number: selectedPullNumber, base_tip: selected.snapshot.base_tip, head: selected.snapshot.head }, selected.job.id, !!confirmReview?.(Number(selected.snapshot.repository_id)));
                   if (mounted.current) setRetryJobId(null);
                 }} />
             )}</div>}

@@ -17,7 +17,7 @@ for (const open of [true, false]) {
   test(`application icon is visible with the sidebar ${open ? "expanded" : "collapsed"}`, () => {
     const html = renderToStaticMarkup(
       <DashboardEditionProvider value={edition}>
-        <DashboardWidgetsProvider value={{ navigationIcons: { custom: <svg data-custom-icon="true" aria-hidden="true"><path d="M4 12h16" /></svg> } }}>
+        <DashboardWidgetsProvider value={{ sidebarFooter: <span>Extension summary</span>, navigationIcons: { custom: <svg data-custom-icon="true" aria-hidden="true"><path d="M4 12h16" /></svg> } }}>
           <SidebarProvider defaultOpen={open}>
             <AppSidebar section="custom" homeHref="/dashboard" organizations={[]} activeOrganization={null}
               user={{ id: "test", name: "Test User", email: "test@example.invalid" }} busy={false} canCreateOrganization={true}
@@ -26,6 +26,7 @@ for (const open of [true, false]) {
         </DashboardWidgetsProvider>
       </DashboardEditionProvider>,
     );
+    assert.equal(html.includes("Extension summary"), open);
     const customLink = html.match(/<a\b[^>]*aria-label="Custom page"[^>]*>.*?<\/a>/)?.[0];
     assert.ok(customLink);
     assert.match(customLink, /data-custom-icon="true"/);

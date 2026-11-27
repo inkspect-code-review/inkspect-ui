@@ -32,7 +32,7 @@ export function AutomaticReviewSettings({ organizationId }: { organizationId: st
     void Promise.resolve().then(() => load(controller.signal));
     return () => controller.abort();
   }, [load]);
-  async function change<K extends "automatic" | "auto_fix" | "ignored_authors" | "check_threshold">(field: K, value: ReviewSettings[K]) {
+  async function change<K extends Exclude<keyof ReviewSettings, "can_manage">>(field: K, value: ReviewSettings[K]) {
     if (pending.current || !settings?.can_manage) return;
     pending.current = true; setBusy(true); clearToast();
     try {
@@ -72,6 +72,19 @@ export function AutomaticReviewSettings({ organizationId }: { organizationId: st
           onChange={event => void change("check_threshold", event.target.value as ReviewSettings["check_threshold"])}>
           {Object.entries(checkThresholdLabels).map(([value, label]) => <option key={value} value={value}>{value} · {label}</option>)}
         </select>
+      </div>
+    </div>
+    <div className={styles.row}>
+      <div className={styles.fieldDescription}>
+        <h3 id="diagram-direction">PR diagram layout</h3>
+        <p id="diagram-direction-help">Choose the flow direction for diagrams in new GitHub pull request reviews.</p>
+      </div>
+      <div className={styles.diagramDirections} role="radiogroup" aria-labelledby="diagram-direction" aria-describedby="diagram-direction-help">
+        {(["TD", "LR"] as const).map(direction => <label key={direction}>
+          <input type="radio" name="diagram-direction" value={direction} checked={(settings?.diagram_direction ?? "TD") === direction}
+            disabled={!settings?.can_manage || busy} onChange={() => void change("diagram_direction", direction)} />
+          {direction === "TD" ? "Top to bottom" : "Left to right"}
+        </label>)}
       </div>
     </div>
     <div className={styles.row}>

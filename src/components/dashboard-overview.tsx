@@ -85,7 +85,8 @@ export function DashboardOverview(props: DashboardOverviewProps) {
 
 function LoadedDashboardOverview({ summary, github, organizationId, initialOverview }: DashboardOverviewProps) {
   const state = useReviewOverview(organizationId, initialOverview);
-  const overview = state.status === "ready" && state.overview.totals.reviews > 0 ? state.overview : null;
+  const { additionalCompleted } = useDashboardWidgets();
+  const overview = state.status === "ready" && (state.overview.totals.reviews > 0 || !!additionalCompleted?.count) ? state.overview : null;
   return <DashboardOverviewView organizationId={organizationId} summary={summary} github={github} overview={overview} loading={state.status === "loading"} unavailable={state.status === "unavailable"} />;
 }
 
@@ -158,11 +159,12 @@ export function DashboardOverviewView({ organizationId, summary, github, overvie
 }
 
 function ReviewMetrics({ overview, repositoryCount, hasOverviewCard, wide }: { overview: ReviewOverview; repositoryCount: number; hasOverviewCard: boolean; wide?: boolean }) {
+  const { additionalCompleted } = useDashboardWidgets();
   const { totals, decisions: verdicts } = overview;
   const attention = verdicts.needs_changes + verdicts.needs_evidence;
   return <>
-    <MetricCard href="/dashboard?view=reviews" icon="reviews" label="Completed reviews" value={totals.completed}
-      detail={totals.active ? `${totals.active} in progress now` : totals.failed ? `${totals.failed} didn’t finish` : "Across your repositories"} />
+    <MetricCard href="/dashboard?view=reviews" icon="reviews" label="Completed reviews" value={totals.completed + (additionalCompleted?.count || 0)}
+      detail={additionalCompleted?.count ? additionalCompleted.detail(totals.completed) : totals.active ? `${totals.active} in progress now` : totals.failed ? `${totals.failed} didn’t finish` : "Across your repositories"} />
     <MetricCard href="/dashboard?view=findings&status=open" icon="findings" label="Open findings" value={overview.findingStatus?.open ?? "—"}
       detail={overview.findingStatus ? `${overview.findingStatus.resolved} resolved · ${overview.findingStatus.notDetected} not detected in latest review` : "Finding status temporarily unavailable"} />
     {!wide && <MetricCard href="/dashboard?view=reviews" icon="check" label="Reviews without blockers" value={(verdicts.ready_for_human ?? 0) + (verdicts.ready_for_review ?? 0)}

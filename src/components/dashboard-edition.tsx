@@ -8,6 +8,11 @@ export const DashboardEditionProvider = EditionContext.Provider;
 export function useDashboardEdition() { return useContext(EditionContext); }
 
 const WidgetsContext = createContext<{
+  repositoryBadge?: (id: number) => ReactNode;
+  additionalCompleted?: { count: number; detail: (workspaceCount:number) => string };
+  historySupplement?: (repositoryId:number) => ReactNode;
+  confirmReview?: (repositoryId:number) => { label:string; workspace:string } | undefined;
+  sidebarFooter?: ReactNode;
   overviewCard?: ReactNode;
   afterReviewActivity?: ReactNode;
   ReviewRepositoryAction?: ComponentType<{ repositoryId: number; repositoryName: string }>;

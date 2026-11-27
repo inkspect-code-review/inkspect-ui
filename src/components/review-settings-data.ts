@@ -12,6 +12,7 @@ export type ReviewSettings = {
   auto_fix: boolean;
   ignored_authors: string[];
   check_threshold: keyof typeof checkThresholdLabels;
+  diagram_direction: "TD" | "LR";
   can_manage: boolean;
 };
 
@@ -25,7 +26,7 @@ export async function loadReviewSettings(organizationId: string, signal?: AbortS
   return data;
 }
 
-export async function saveReviewSetting<K extends "automatic" | "auto_fix" | "ignored_authors" | "check_threshold">(
+export async function saveReviewSetting<K extends Exclude<keyof ReviewSettings, "can_manage">>(
   organizationId: string, field: K, value: ReviewSettings[K],
 ): Promise<ReviewSettings> {
   const response = await productFetch(reviewSettingsURL(organizationId), {

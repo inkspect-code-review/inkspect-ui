@@ -250,6 +250,69 @@
   --dash-backdrop: #08060db8;
 }
 
+[data-dashboard-theme="graphite"] {
+  --dash-scheme: dark;
+  --dash-logo-filter: none;
+  --dash-bg: #090909;
+  --dash-panel: #111111;
+  --dash-raised: #181818;
+  --dash-border: #212121;
+  --dash-text: #ffffff;
+  --dash-muted: #979797;
+  --dash-chart-input: #456ed6;
+  --dash-chart-output: #98b7ff;
+  --dash-accent: #83a6ff;
+  --dash-chrome: var(--dash-panel);
+  --dash-input: var(--dash-raised);
+  --dash-card: var(--dash-panel);
+  --dash-table-heading: var(--dash-raised);
+  --dash-heading: var(--dash-panel);
+  --dash-nav-hover: var(--dash-raised);
+  --dash-secondary: var(--dash-raised);
+  --dash-artwork-bg: var(--dash-raised);
+  --dash-nav-active: var(--dash-panel);
+  --dash-step-bg: var(--dash-raised);
+  --dash-user-avatar: var(--dash-border);
+  --dash-badge-bg: var(--dash-raised);
+  --dash-avatar-bg: var(--dash-border);
+  --dash-icon-hover: #292929;
+  --dash-secondary-hover: var(--dash-icon-hover);
+  --dash-dropdown-hover: var(--dash-icon-hover);
+  --dash-nav-border: var(--dash-border);
+  --dash-primary: #2a52b8;
+  --dash-badge-border: var(--dash-border);
+  --dash-secondary-border: #383838;
+  --dash-strong-border: #424242;
+  --dash-primary-hover: #355fc9;
+  --dash-scrollbar: #535353;
+  --dash-input-border: #676767;
+  --dash-artwork-line: var(--dash-strong-border);
+  --dash-primary-border: var(--dash-chart-input);
+  --dash-separator: var(--dash-strong-border);
+  --dash-footer-text: var(--dash-muted);
+  --dash-panel-footer-text: var(--dash-muted);
+  --dash-artwork-text: var(--dash-muted);
+  --dash-badge-text: #d9d9d9;
+  --dash-nav-icon: var(--dash-muted);
+  --dash-step-text: var(--dash-badge-text);
+  --dash-secondary-text: var(--dash-text);
+  --dash-breadcrumb-text: var(--dash-badge-text);
+  --dash-avatar-text: var(--dash-text);
+  --dash-nav-text: var(--dash-text);
+  --dash-sidebar-link: var(--dash-muted);
+  --dash-primary-text: var(--dash-text);
+  --dash-success-bg: #17392f;
+  --dash-success-border: #2c5948;
+  --dash-success-text: #8bc8ad;
+  --dash-warning-text: #e4bc68;
+  --dash-error-bg: #352128;
+  --dash-error-border: #65404d;
+  --dash-error-text: #f1b3c0;
+  --dash-shadow: #0005;
+  --dash-dialog-shadow: #0008;
+  --dash-backdrop: #000000b8;
+}
+
 /* Shared surface hierarchy; each saved palette keeps its own contrast. */
 [data-dashboard-theme] {
   --dash-panel-radius: 14px;

@@ -19,7 +19,7 @@
 .window[data-expanded="true"] { inset: var(--chat-expanded-top, 0) auto auto var(--chat-expanded-left, 0); width: var(--chat-expanded-width, 100vw); height: var(--chat-expanded-height, 100svh); border-radius: var(--chat-expanded-radius, 0); box-shadow: none; }
 .header { display: flex; align-items: center; gap: 9px; flex-shrink: 0; padding: 15px 16px; border-bottom: 1px solid var(--dash-border); background: var(--dash-chrome); }
 .dragHandle { display: flex; align-items: center; gap: 9px; flex: 1; min-width: 0; align-self: stretch; cursor: grab; touch-action: none; user-select: none; border-radius: 4px; }
-.dragHandle[aria-disabled="true"] { cursor: default; }
+.dragHandle:not([role="button"]) { cursor: default; }
 .window[data-interacting="true"] { user-select: none; }
 .window[data-interacting="true"] .dragHandle { cursor: grabbing; }
 .dragHandle:focus-visible { outline: 2px solid var(--dash-accent); outline-offset: 4px; }
@@ -153,3 +153,21 @@
   text-decoration: none;
 }
 .markdown a[data-chat-task]:hover { border-color: var(--dash-accent); }
+
+/* The persistent chat follows the dashboard in the workspace flex layout. */
+.window[data-docked="true"] {
+  position: relative;
+  inset: auto;
+  z-index: auto;
+  flex: 0 0 clamp(340px, 24vw, 420px);
+  width: auto;
+  min-width: 0;
+  height: calc(100svh - 24px);
+  margin: 12px 12px 12px 0;
+  border-color: var(--dash-border);
+  border-radius: 18px;
+  box-shadow: none;
+}
+.window[data-docked="true"] .header { min-height: 64px; gap: 5px; padding: 10px 14px; }
+.window[data-docked="true"] .dragHandle { touch-action: auto; }
+.window[data-docked="true"] .messages { padding: 16px; }

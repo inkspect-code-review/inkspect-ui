@@ -29,7 +29,7 @@ type Props = {
 
 export function AppSidebar({ section, homeHref, organizations, activeOrganization, user, busy, canCreateOrganization, onSelectOrganization, onCreateOrganization, onSignOut, onOpenFeedback, onOpenAbout }: Props) {
   const edition = useDashboardEdition();
-  const { navigationIcons } = useDashboardWidgets();
+  const { navigationIcons, sidebarFooter } = useDashboardWidgets();
   const { navigation, sections: dashboardSections } = edition;
   const { open, isMobile, setOpenMobile } = useSidebar();
   const hasSupport = edition.sections.some(item => item.id === "support");
@@ -73,35 +73,40 @@ export function AppSidebar({ section, homeHref, organizations, activeOrganizatio
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <nav className={styles.navigation} aria-label="Workspace pages">
-        {navigation.map((group) => <div className={styles.group} key={group.title}>
-          <p className={styles.groupTitle}>{group.title}</p>
-          <ul>{group.sections.map((id) => {
-            const item = dashboardSections.find((entry) => entry.id === id)!;
-            return <li key={id}><Link className={styles.navLink} href={id === "dashboard" ? homeHref : `/dashboard?view=${id}`} aria-label={item.name} title={compact ? item.name : undefined} aria-current={section === id ? "page" : undefined} onClick={closeMobile}>
-              {navigationIcons?.[id] ?? <DashboardIcon name={id} />}<span>{item.name}</span>
-            </Link></li>;
-          })}</ul>
-        </div>)}
-      </nav>
+      <div className={styles.scrollArea}>
+        <nav className={styles.navigation} aria-label="Workspace pages">
+          {navigation.map((group) => <div className={styles.group} key={group.title}>
+            <p className={styles.groupTitle}>{group.title}</p>
+            <ul>{group.sections.map((id) => {
+              const item = dashboardSections.find((entry) => entry.id === id)!;
+              return <li key={id}><Link className={styles.navLink} href={id === "dashboard" ? homeHref : `/dashboard?view=${id}`} aria-label={item.name} title={compact ? item.name : undefined} aria-current={section === id ? "page" : undefined} onClick={closeMobile}>
+                {navigationIcons?.[id] ?? <DashboardIcon name={id} />}<span>{item.name}</span>
+              </Link></li>;
+            })}</ul>
+          </div>)}
+        </nav>
+        <div className={styles.help}>
+          {isMobile ? <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button type="button" className={`${styles.navLink} ${styles.navButton}`} aria-label="Help" data-active={section === "support"}>
+                <CircleHelp size={18} /><span>Help</span><ChevronsUpDown className={styles.helpArrow} aria-hidden="true" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-64 rounded-lg" side="top" align="end" sideOffset={12} collisionPadding={12}>
+              {onOpenFeedback && <DropdownMenuItem id="workspace-feedback-trigger" className="min-h-11" onSelect={() => { closeMobile(); onOpenFeedback(); }}><MessageSquare />Feedback</DropdownMenuItem>}
+              {hasSupport && <DropdownMenuItem className="min-h-11" asChild><Link href="/dashboard?view=support" aria-current={section === "support" ? "page" : undefined} onClick={closeMobile}><DashboardIcon name="support" />Support</Link></DropdownMenuItem>}
+              <DropdownMenuItem className="min-h-11" asChild><a href="https://inkspect.si/docs" target="_blank" rel="noopener noreferrer" onClick={closeMobile}><BookOpen />Documentation</a></DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu> : <>
+          {onOpenFeedback && <button id="workspace-feedback-trigger" type="button" className={`${styles.navLink} ${styles.navButton}`} aria-label="Feedback" aria-haspopup="dialog" title={compact ? "Feedback" : undefined} onClick={() => { closeMobile(); onOpenFeedback(); }}><MessageSquare size={18} /><span>Feedback</span></button>}
+          {hasSupport && <Link className={styles.navLink} href="/dashboard?view=support" aria-label="Support" title={compact ? "Support" : undefined} aria-current={section === "support" ? "page" : undefined} onClick={closeMobile}><DashboardIcon name="support" /><span>Support</span></Link>}
+          <a className={styles.navLink} href="https://inkspect.si/docs" target="_blank" rel="noopener noreferrer" aria-label="Documentation" title={compact ? "Documentation" : undefined}><BookOpen size={18} /><span>Documentation</span></a>
+          </>}
+          {!onOpenAbout && <p className={styles.version} title="UI version">UI {process.env.NEXT_PUBLIC_UI_VERSION === "dev" ? "dev" : `v${process.env.NEXT_PUBLIC_UI_VERSION}`}</p>}
+        </div>
+      </div>
       <div className={styles.footer}>
-        {isMobile ? <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button type="button" className={`${styles.navLink} ${styles.navButton}`} aria-label="Help" data-active={section === "support"}>
-              <CircleHelp size={18} /><span>Help</span><ChevronsUpDown className={styles.helpArrow} aria-hidden="true" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-64 rounded-lg" side="top" align="end" sideOffset={12} collisionPadding={12}>
-            {onOpenFeedback && <DropdownMenuItem id="workspace-feedback-trigger" className="min-h-11" onSelect={() => { closeMobile(); onOpenFeedback(); }}><MessageSquare />Feedback</DropdownMenuItem>}
-            {hasSupport && <DropdownMenuItem className="min-h-11" asChild><Link href="/dashboard?view=support" aria-current={section === "support" ? "page" : undefined} onClick={closeMobile}><DashboardIcon name="support" />Support</Link></DropdownMenuItem>}
-            <DropdownMenuItem className="min-h-11" asChild><a href="https://inkspect.si/docs" target="_blank" rel="noopener noreferrer" onClick={closeMobile}><BookOpen />Documentation</a></DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu> : <>
-        {onOpenFeedback && <button id="workspace-feedback-trigger" type="button" className={`${styles.navLink} ${styles.navButton}`} aria-label="Feedback" aria-haspopup="dialog" title={compact ? "Feedback" : undefined} onClick={() => { closeMobile(); onOpenFeedback(); }}><MessageSquare size={18} /><span>Feedback</span></button>}
-        {hasSupport && <Link className={styles.navLink} href="/dashboard?view=support" aria-label="Support" title={compact ? "Support" : undefined} aria-current={section === "support" ? "page" : undefined} onClick={closeMobile}><DashboardIcon name="support" /><span>Support</span></Link>}
-        <a className={styles.navLink} href="https://inkspect.si/docs" target="_blank" rel="noopener noreferrer" aria-label="Documentation" title={compact ? "Documentation" : undefined}><BookOpen size={18} /><span>Documentation</span></a>
-        </>}
-        {!onOpenAbout && <p className={styles.version} title="UI version">UI {process.env.NEXT_PUBLIC_UI_VERSION === "dev" ? "dev" : `v${process.env.NEXT_PUBLIC_UI_VERSION}`}</p>}
+        {!compact && sidebarFooter}
         <div className={styles.account}><NavUser user={user} busy={busy} onSignOut={onSignOut} onNavigate={closeMobile} onOpenAbout={onOpenAbout} /></div>
       </div>
     </div>

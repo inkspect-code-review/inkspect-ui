@@ -28,6 +28,7 @@ function Star({ filled }: { filled: boolean }) {
   return <svg width="16" height="16" viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="m12 3 2.8 5.7 6.3.9-4.5 4.4 1.1 6.2-5.7-3-5.7 3 1.1-6.2L3.2 9.6l6.3-.9Z" /></svg>;
 }
 export function RepositoriesWorkspace({ organizationId, repositories, canManage }: { organizationId: string; repositories: Repository[]; canManage: boolean }) {
+  const { repositoryBadge } = useDashboardWidgets();
   const searchParams = useSearchParams();
   const [availableRepositories, setAvailableRepositories] = useState(repositories);
   useEffect(() => { const controller = new AbortController(); productFetch(endpoint(organizationId, "list"), { signal: controller.signal, cache: "no-store" }).then(result).then(value => { if (!controller.signal.aborted) setAvailableRepositories(value.repositories); }).catch(() => {}); return () => controller.abort(); }, [organizationId, repositories]);
@@ -127,6 +128,7 @@ export function RepositoriesWorkspace({ organizationId, repositories, canManage 
             {indexed?.has(repo.id) ? <CircleCheck className={styles.indexed} aria-hidden="true" /> : <DashboardIcon name="repositories" />}
             <span><strong>{repo.fullName.split("/").slice(1).join("/") || repo.fullName}</strong>
               <small className={styles.repoMeta}><span className={styles.owner} title={repo.fullName}>{repo.fullName.split("/")[0]}</span><span aria-hidden="true">/</span>{repo.private ? "Private" : "Public"}
+                {repositoryBadge?.(repo.id)}
                 {indexed?.has(repo.id) && <span className={styles.indexed}>Indexed</span>}
               </small>
             </span>
@@ -142,7 +144,7 @@ export function RepositoriesWorkspace({ organizationId, repositories, canManage 
   </div>;
 }
 function RepositoryDetail({ organizationId, repository, onError }: { organizationId: string; repository: Repository; onError: (message: string) => void }) {
-  const { PublicRepositoryNotice, ReviewRepositoryAction } = useDashboardWidgets();
+  const { PublicRepositoryNotice, ReviewRepositoryAction, repositoryBadge } = useDashboardWidgets();
   const supportAvailable = useDashboardEdition().sections.some(item => item.id === "support");
   const [index, setIndex] = useState<RepositoryIndex | null>(null);
   const [eligibility, setEligibility] = useState<RepositoryIndexEligibility | null>(null);
@@ -211,7 +213,7 @@ function RepositoryDetail({ organizationId, repository, onError }: { organizatio
   const supportHref = `/dashboard?${new URLSearchParams({ view: "support", reason: "repository-size", repository: String(repository.id) })}`;
   const stages: Record<string, string> = { queued: "Waiting to start", resolving: "Preparing repository", discovering: "Scanning repository", cloning: "Cloning repository", reading: "Reading files", indexing: "Indexing repository", embedding: "Indexing repository", publishing: "Saving repository index", analyzing: "Writing description", summarizing: "Writing description", completed: "Indexed", empty: "Repository is empty", failed: p?.indexed ? "Indexed · analysis needs attention" : "Index needs attention", cancelled: "Indexing stopped", idle: "Ready to index" };
   return <section className={styles.detail} aria-label={`${repository.fullName} details`}>
-    <header className={styles.detailHeader}><div><span className={styles.repoOwner}>{repository.fullName.split("/")[0]}</span><h2>{repository.fullName.split("/").slice(1).join("/") || repository.fullName}</h2><div className={styles.meta}><span><DashboardIcon name={repository.private ? "lock" : "repositories"} />{repository.private ? "Private" : "Public"}</span>{p?.branch && <span>{p.branch}</span>}{p?.revision && <code title={p.revision}>{p.revision.slice(0, 7)}</code>}</div></div>
+    <header className={styles.detailHeader}><div><span className={styles.repoOwner}>{repository.fullName.split("/")[0]}</span><h2>{repository.fullName.split("/").slice(1).join("/") || repository.fullName}</h2><div className={styles.meta}><span><DashboardIcon name={repository.private ? "lock" : "repositories"} />{repository.private ? "Private" : "Public"}</span>{repositoryBadge?.(repository.id)}{p?.branch && <span>{p.branch}</span>}{p?.revision && <code title={p.revision}>{p.revision.slice(0, 7)}</code>}</div></div>
       <div className={styles.detailActions}>
         {ReviewRepositoryAction && <ReviewRepositoryAction repositoryId={repository.id} repositoryName={repository.fullName} />}
         <a className={shared.secondaryButton} href={githubURL} target="_blank" rel="noreferrer">View on GitHub<DashboardIcon name="arrow" /></a>

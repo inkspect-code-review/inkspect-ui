@@ -19,3 +19,12 @@ test("the account dropdown opens above the expanded chat window", () => {
   assert.ok(chatLayers.length > 0);
   assert.ok(chatLayers.every(layer => layer < Number(menuLayer[1])));
 });
+
+test("the docked chat margins use the same background as the workspace", () => {
+  const css = postcss.parse(readFileSync(new URL("../../src/styles/shadcn.css", import.meta.url), "utf8"));
+  const backgrounds: string[] = [];
+  css.walkRules('[data-slot="sidebar-wrapper"]', rule => {
+    rule.walkDecls("background-color", declaration => { backgrounds.push(declaration.value); });
+  });
+  assert.ok(backgrounds.includes("var(--dash-bg)"));
+});

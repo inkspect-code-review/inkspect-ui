@@ -9,6 +9,7 @@ import { productFetch } from "@inkspect/core/lib/api-client";
 import { reportBrowserError } from "@inkspect/core/lib/diagnostics/client";
 
 import Image from "next/image";
+import { ExternalLink, PanelRightOpen } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import type { Repository } from "@inkspect/core/lib/github";
 import type { ChatConversation, ChatDetail } from "@inkspect/core/lib/workspace-chat";
@@ -17,21 +18,21 @@ import { ChatMarkdown, ChatCopyButton } from "./chat-markdown";
 import { ChatRepositoryPicker } from "./chat-repository-picker";
 import { ChatIndexAction } from "./chat-index-action";
 import { ChatSources } from "./chat-sources";
-import { useChatWindow } from "./chat-window-provider";
+import { useWorkspaceChatLayout } from "./use-workspace-chat-layout";
 import { useChatWindowFrame, isMobileChat } from "./use-chat-window-frame";
 import { resizeDirections } from "@inkspect/core/lib/chat-window-geometry";
 import { chatDraftKey } from "@inkspect/core/lib/chat-window-state";
 import styles from "./workspace-chat.module.css";
 
 export function WorkspaceChatLauncher({ scopeKey, panelId, compact = false }: { scopeKey: string; panelId: string; compact?: boolean }) {
-  const [window, setWindow] = useChatWindow(scopeKey);
-  return <button id={`${panelId}-launcher`} className={styles.launcher} data-compact={compact} type="button" onClick={() => setWindow({ open: !window.open })} aria-expanded={window.open} aria-pressed={window.open} aria-controls={panelId} aria-label={window.open ? "Ask AI — close chat" : "Ask AI — open chat"} title={compact ? undefined : window.open ? "Close AI chat" : "Open AI chat"} data-sidebar-tooltip={window.open ? "Ask AI · Close chat" : "Ask AI · Open chat"}><span className={styles.launcherIcon}><Image src="/brand/inkspect-symbol-white.svg" alt="" width={16} height={20} className={styles.mark} />{window.open && <i className={styles.activeDot} />}</span><span className={styles.launcherLabel}>Ask AI</span><span className={styles.launcherAction} aria-hidden="true">{window.open ? <><span className={styles.openLabel}>Open</span><DashboardIcon name="close" /></> : "↗"}</span></button>;
+  const { window, setOpen } = useWorkspaceChatLayout(scopeKey);
+  return <button id={`${panelId}-launcher`} className={styles.launcher} data-compact={compact} type="button" onClick={() => setOpen(!window.open)} aria-expanded={window.open} aria-pressed={window.open} aria-controls={panelId} aria-label={window.open ? "Ask AI — close chat" : "Ask AI — open chat"} title={compact ? undefined : window.open ? "Close AI chat" : "Open AI chat"} data-sidebar-tooltip={window.open ? "Ask AI · Close chat" : "Ask AI · Open chat"}><span className={styles.launcherIcon}><Image src="/brand/inkspect-symbol-white.svg" alt="" width={16} height={20} className={styles.mark} />{window.open && <i className={styles.activeDot} />}</span><span className={styles.launcherLabel}>Ask AI</span><span className={styles.launcherAction} aria-hidden="true">{window.open ? <><span className={styles.openLabel}>Open</span><DashboardIcon name="close" /></> : "↗"}</span></button>;
 }
 
 type Props = { scopeKey: string; panelId: string; organizationId: string; organizationName: string; repositories: Repository[] };
 export function WorkspaceChat({ scopeKey, panelId, organizationId, organizationName, repositories }: Props) {
-  const [window, setWindow] = useChatWindow(scopeKey);
-  const { panel: panelRef, style: frameStyle, interacting, handlers: frameHandlers, mobile } = useChatWindowFrame(window.frame, window.expanded, window.open, setWindow);
+  const { window, setWindow, setOpen, docked, canDock } = useWorkspaceChatLayout(scopeKey);
+  const { panel: panelRef, style: frameStyle, interacting, handlers: frameHandlers, mobile } = useChatWindowFrame(docked ? null : window.frame, window.expanded, window.open && !docked, setWindow);
   const { notify } = useNotifications();
   const [detail, setDetail] = useState<ChatDetail | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -69,22 +70,25 @@ export function WorkspaceChat({ scopeKey, panelId, organizationId, organizationN
   }, [organizationId]);
 
   const minimize = useCallback(() => {
-    setWindow({ open: false });
-    if (opener.current?.isConnected) opener.current.focus();
+    setOpen(false);
+    if (!docked && opener.current?.isConnected && !panelRef.current?.contains(opener.current)) opener.current.focus();
     else document.getElementById(`${panelId}-launcher`)?.focus();
-  }, [setWindow, panelId]);
+  }, [setOpen, docked, panelId, panelRef]);
 
   useEffect(() => {
     if (!window.open) return;
-    opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    if (isMobileChat()) panelRef.current?.focus({preventScroll:true});
-    else input.current?.focus({preventScroll:true});
+    if (!docked) {
+      opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      if (isMobileChat()) panelRef.current?.focus({preventScroll:true});
+      else input.current?.focus({preventScroll:true});
+    }
     const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !event.defaultPrevented && !document.querySelector('dialog[open], [data-radix-popper-content-wrapper]')) { event.preventDefault(); minimize(); }
+      if (docked && !(event.target instanceof Node && panelRef.current?.contains(event.target))) return;
+      if (event.key === "Escape" && !event.defaultPrevented && !document.querySelector('dialog[open], [role="dialog"][data-state="open"], [data-radix-popper-content-wrapper]')) { event.preventDefault(); minimize(); }
     };
     document.addEventListener("keydown", escape);
     return () => document.removeEventListener("keydown", escape);
-  }, [window.open, minimize, panelRef]);
+  }, [window.open, docked, minimize, panelRef]);
   useEffect(() => () => mutation.current?.abort(), []);
   useEffect(() => {
     if (window.open && conversation.current) conversation.current.scrollTop = conversation.current.scrollHeight;
@@ -136,7 +140,7 @@ export function WorkspaceChat({ scopeKey, panelId, organizationId, organizationN
   function newChat() {
     lastRequest.current = null;
     mutation.current?.abort(); mutation.current=null;setStreamingText("");setActivity(null);
-    setWindow({ open: true, conversationId: null });
+    setWindow({ conversationId: null });
     setDetail(null); setError(""); setNotice(""); setHistoryOpen(false); setConfirmDelete(false); setLoading(false); setPending(false);
     if (isMobileChat()) panelRef.current?.focus({preventScroll:true});
     else input.current?.focus({preventScroll:true});
@@ -162,7 +166,14 @@ export function WorkspaceChat({ scopeKey, panelId, organizationId, organizationN
       });
       setHistoryVersion((value) => value + 1);
     } catch (error) { reportBrowserError("browser.workspace.chat", error); if (!controller.signal.aborted) setError(error instanceof Error ? error.message : "Couldn’t save your question."); }
-    finally { if (!controller.signal.aborted) { mutation.current=null;setStreamingText("");setActivity(null);setPending(false); if (!isMobileChat()) input.current?.focus({preventScroll:true}); } }
+    finally {
+      if (!controller.signal.aborted) {
+        mutation.current = null; setStreamingText(""); setActivity(null); setPending(false);
+        if (!isMobileChat() && (document.activeElement === document.body || panelRef.current?.contains(document.activeElement))) {
+          input.current?.focus({ preventScroll: true });
+        }
+      }
+    }
   }
   async function share() {
     if (!detail?.conversation.owner || busy) return;
@@ -193,15 +204,22 @@ export function WorkspaceChat({ scopeKey, panelId, organizationId, organizationN
     finally { setHistoryLoading(false); }
   }
 
-  return <section tabIndex={-1} ref={panelRef} style={frameStyle} id={panelId} className={styles.window} data-interacting={interacting} data-expanded={window.expanded} hidden={!window.open} role="dialog" aria-modal="false" aria-labelledby={`${panelId}-title`}>
+  const placementLabel = docked ? "Pop out chat" : "Dock chat on the right";
+  const movable = !docked && !mobile && !window.expanded;
+
+  return <section tabIndex={-1} ref={panelRef} style={frameStyle} id={panelId} className={styles.window} data-docked={docked} data-interacting={interacting} data-expanded={window.expanded} hidden={!window.open} role={docked ? "complementary" : "dialog"} aria-modal={docked ? undefined : false} aria-labelledby={`${panelId}-title`}>
     <header className={styles.header}>
-      <div className={styles.dragHandle} role="button" tabIndex={mobile || window.expanded ? -1 : 0} aria-disabled={mobile || window.expanded} aria-label="Move chat window" title="Drag to move · Arrow keys to move" {...frameHandlers("move")}>
+      <div className={styles.dragHandle} role={movable ? "button" : undefined} tabIndex={movable ? 0 : undefined} aria-label={movable ? "Move chat window" : undefined} title={movable ? "Drag to move · Arrow keys to move" : undefined} {...(movable ? frameHandlers("move") : {})}>
       <Image className={styles.mark} src="/brand/inkspect-symbol-white.svg" alt="" width={22} height={28} />
       <div className={styles.title}><h2 id={`${panelId}-title`}>Ask AI</h2><p>{organizationName}</p></div>
       </div>
       <button className={styles.iconButton} type="button" disabled={pending} onClick={() => { setHistoryOpen(!historyOpen); setError(""); }} aria-label="Chat history" aria-pressed={historyOpen}><DashboardIcon name="history" /></button>
       <button className={styles.iconButton} type="button" onClick={newChat} disabled={pending} aria-label="New chat"><DashboardIcon name="plus" /></button>
-      <button className={`${styles.iconButton} ${styles.expandButton}`} type="button" onClick={() => setWindow({ expanded: !window.expanded })} aria-label={window.expanded ? "Reduce chat window" : "Expand chat window"}><DashboardIcon name={window.expanded ? "collapse" : "expand"} /></button>
+      {canDock && <button className={styles.iconButton} type="button" title={placementLabel} aria-label={placementLabel}
+        onClick={() => setWindow({ placement: docked ? "window" : "panel", open: true, panelOpen: true, expanded: false })}>
+        {docked ? <ExternalLink aria-hidden="true" /> : <PanelRightOpen aria-hidden="true" />}
+      </button>}
+      {!docked && <button className={`${styles.iconButton} ${styles.expandButton}`} type="button" onClick={() => setWindow({ expanded: !window.expanded })} aria-label={window.expanded ? "Reduce chat window" : "Expand chat window"}><DashboardIcon name={window.expanded ? "collapse" : "expand"} /></button>}
       <button className={styles.iconButton} type="button" onClick={minimize} aria-label="Minimize chat"><DashboardIcon name="minus" /></button>
     </header>
     {historyOpen ? <div className={styles.history}>
@@ -230,6 +248,6 @@ export function WorkspaceChat({ scopeKey, panelId, organizationId, organizationN
       {readOnly ? <div className={styles.readOnly}><DashboardIcon name="share" /><span>{loading ? "Loading…" : "Shared conversations are read-only."}</span><button type="button" onClick={newChat}>Start your own</button></div> : <form className={styles.composer} onSubmit={submit}><label className={styles.srOnly} htmlFor={`${panelId}-question`}>Your question</label><textarea id={`${panelId}-question`} ref={input} value={window.draft} disabled={pending} placeholder="Ask about your repositories…" rows={3} onChange={(event) => setWindow({ draft: event.target.value })} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} /><div className={styles.composerFooter}><span>{pending ? (streamingText ? "Responding…" : "Working…") : "Enter to send · Shift + Enter for a new line"}</span><button type="submit" disabled={busy || !window.draft.trim()} aria-label={pending ? "Waiting for reply" : "Send question"} title="Send question"><DashboardIcon name={pending ? "history" : "send"} /></button></div></form>}
     </>}
     <Notification tone="error" message={error} />
-    {!mobile && !window.expanded && resizeDirections.map((direction) => <button key={direction} type="button" className={styles.resizeHandle} data-direction={direction} aria-label={`Resize chat from ${({ n: "top", e: "right", s: "bottom", w: "left", ne: "top right", se: "bottom right", sw: "bottom left", nw: "top left" })[direction]}`} title="Drag to resize · Arrow keys to resize" {...frameHandlers(direction)} />)}
+    {movable && resizeDirections.map((direction) => <button key={direction} type="button" className={styles.resizeHandle} data-direction={direction} aria-label={`Resize chat from ${({ n: "top", e: "right", s: "bottom", w: "left", ne: "top right", se: "bottom right", sw: "bottom left", nw: "top left" })[direction]}`} title="Drag to resize · Arrow keys to resize" {...frameHandlers(direction)} />)}
   </section>;
 }

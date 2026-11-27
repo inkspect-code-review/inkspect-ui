@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
+import { useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
 import { usePathname } from "next/navigation";
 import { adjustChatFrame, fitChatFrame, type ChatFrame, type WindowGesture } from "@inkspect/core/lib/chat-window-geometry";
 
@@ -13,7 +13,28 @@ const subscribeMobile = (notify: () => void) => {
 };
 const serverMobile = () => false;
 
-const viewport = () => ({ width: document.documentElement.clientWidth, height: globalThis.innerHeight });
+function viewport() {
+  const visual = globalThis.visualViewport;
+  const width = document.documentElement.clientWidth || globalThis.innerWidth;
+  const height = globalThis.innerHeight;
+  if (visual?.scale !== 1) return { width, height };
+  return { width: Math.min(width, visual.width || width), height: Math.min(height, visual.height || height) };
+}
+
+function subscribeViewport(notify: () => void) {
+  globalThis.addEventListener("resize", notify);
+  const visual = globalThis.visualViewport;
+  visual?.addEventListener("resize", notify);
+  return () => {
+    globalThis.removeEventListener("resize", notify);
+    visual?.removeEventListener("resize", notify);
+  };
+}
+
+const viewportWidth = () => viewport().width;
+const viewportHeight = () => viewport().height;
+const noSize = () => 0;
+const noSubscription = () => () => {};
 
 export function useChatWindowFrame(frame: ChatFrame | null, expanded: boolean, open: boolean, update: (changes: { frame: ChatFrame }) => void) {
   const panel = useRef<HTMLElement>(null);
@@ -31,7 +52,7 @@ export function useChatWindowFrame(frame: ChatFrame | null, expanded: boolean, o
       // Follow the keyboard viewport without disabling the user's pinch zoom.
       if (visual && visual.scale !== 1) return;
       element.style.setProperty("--chat-mobile-top", `${visual?.offsetTop ?? 0}px`);
-      element.style.setProperty("--chat-mobile-height", `${visual?.height ?? globalThis.innerHeight}px`);
+      element.style.setProperty("--chat-mobile-height", `${visual?.height || globalThis.innerHeight}px`);
     };
     const bodyOverflow = document.body.style.overflow;
     const rootOverflow = document.documentElement.style.overflow;
@@ -79,17 +100,14 @@ export function useChatWindowFrame(frame: ChatFrame | null, expanded: boolean, o
     };
   }, [expanded, open, pathname, mobile]);
 
-  useEffect(() => {
-    if (!frame || mobile) return;
-    const fit = () => {
-      const next = fitChatFrame(frame, viewport());
-      if (next.x !== frame.x || next.y !== frame.y || next.width !== frame.width || next.height !== frame.height) update({ frame: next });
-    };
-    // Re-check saved bounds when returning to this page or reopening the chat.
-    const animation = requestAnimationFrame(fit);
-    globalThis.addEventListener("resize", fit);
-    return () => { cancelAnimationFrame(animation); globalThis.removeEventListener("resize", fit); };
-  }, [frame, update, open, mobile]);
+  // Fit the displayed rectangle before paint. Only manual moves and resizes
+  // update the saved frame, so widening the viewport restores its position.
+  const floatingFrame = !expanded && !mobile && open ? frame : null;
+  const subscribe = floatingFrame ? subscribeViewport : noSubscription;
+  const width = useSyncExternalStore(subscribe, floatingFrame ? viewportWidth : noSize, noSize);
+  const height = useSyncExternalStore(subscribe, floatingFrame ? viewportHeight : noSize, noSize);
+  const visible = floatingFrame && width > 0 && height > 0
+    ? fitChatFrame(floatingFrame, { width, height }) : null;
 
   function currentFrame(): ChatFrame | null {
     const rect = panel.current?.getBoundingClientRect();
@@ -131,7 +149,7 @@ export function useChatWindowFrame(frame: ChatFrame | null, expanded: boolean, o
     update({ frame: adjustChatFrame(initial, mode, dx, dy, viewport()) });
   }
 
-  const style: CSSProperties | undefined = frame && !expanded && !mobile ? { left: frame.x, top: frame.y, right: "auto", bottom: "auto", width: frame.width, height: frame.height } : undefined;
+  const style: CSSProperties | undefined = visible ? { left: visible.x, top: visible.y, right: "auto", bottom: "auto", width: visible.width, height: visible.height } : undefined;
   const handlers = (mode: WindowGesture) => ({
     onPointerDown: (event: PointerEvent<HTMLElement>) => start(event, mode),
     onPointerMove: move, onPointerUp: stop, onPointerCancel: stop, onLostPointerCapture: stop,

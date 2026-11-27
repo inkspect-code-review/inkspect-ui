@@ -6,11 +6,29 @@ as appropriate. The package's `0.1.0` version is not a claim of a tagged release
 
 ## Unreleased
 
+- 2026-11-27 — Choose top-to-bottom or left-to-right PR diagrams in workspace review settings.
+
+- 2026-11-27 — Support repository labels, additional completed reports and confirmation for individual review runs.
+
 ### 2026-11-27
 
 #### Fixed
 
 - Hide “Mark resolved” for findings that the latest review did not detect.
+
+- Keep Ask AI visible when the browser resizes and restore a floating window’s chosen position when space returns.
+
+- Use the workspace theme behind the docked Ask AI panel so its outer margins match the sidebar.
+
+#### Added
+
+- Use Graphite, with near-black surfaces and cobalt accents, by default in browsers without a saved theme. The former default is available as Charcoal.
+
+- Open Ask AI in a right-hand panel on wide workspaces. Pop it out into a movable window or dock it again during a conversation.
+
+#### Changed
+
+- Refine workspace navigation spacing and active page styling, and use a borderless workspace switcher. Applications can place a widget above the account menu when the sidebar is expanded.
 
 ### 2026-11-26
 
