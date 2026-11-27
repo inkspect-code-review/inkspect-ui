@@ -77,6 +77,7 @@ test("the findings timeline groups local review days and preserves server sort o
     { status: "open", source: "latest_review" },
     { status: "resolved", source: "manual" },
     { status: "resolved", source: "verified_fix" },
+    { status: "not_detected", source: "latest_review" },
   ] as const;
   const rows = findings.map((finding, i) => ({ ...finding, resolution: states[i] }));
   const html = renderToStaticMarkup(<FindingsTimeline organizationId="workspace-one" findings={rows} />);
@@ -91,7 +92,9 @@ test("the findings timeline groups local review days and preserves server sort o
   assert.equal(items[1].querySelector('[data-status="resolved"]')?.textContent, "Resolved");
   assert.ok(items[1].querySelector('button[aria-label^="Undo manual resolution"]'));
   assert.equal(items[2].querySelector('button[aria-label^="Undo manual resolution"]'), null);
-  assert.match(items[3].textContent ?? "", /Status unavailable/);
+  assert.equal(items[3].querySelector('[data-status="not_detected"]')?.textContent, "Not detected in latest review");
+  assert.equal(items[3].querySelector('button[aria-label^="Mark as resolved"]'), null);
+  assert.match(items[4].textContent ?? "", /Status unavailable/);
   assert.equal(groups[0].querySelector("time")?.textContent, "5m");
   assert.equal(groups[0].querySelector('[data-severity="high"] > span')?.textContent, "P1");
   assert.equal(groups[0].querySelectorAll('button[aria-haspopup="dialog"]').length, 2);

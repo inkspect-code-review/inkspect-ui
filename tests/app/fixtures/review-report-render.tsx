@@ -122,7 +122,7 @@ test("finding resolution preserves the original report and distinguishes manual 
   const absent = renderToStaticMarkup(<ReviewReportView value={value} organizationId="workspace" />);
   assert.match(absent, /Not detected in latest review/);
   assert.match(absent, /not a verified repair/);
-  assert.match(absent, /Mark resolved/);
+  assert.doesNotMatch(absent, /Mark resolved/);
   assert.doesNotMatch(absent, /Verified AI fix/);
 });
 

@@ -16,6 +16,7 @@ export function FindingStatusControl({ value, organizationId, repositoryId, jobI
   const info = updated && updated.original === value ? updated.value : value;
   if (!info) return null;
   const manual = info.source === "manual";
+  const showResolutionAction = manual || info.status === "open" || info.status === "historical";
   const explanation = manual ? "Manually resolved" : info.source === "verified_fix" ? "Verified AI fix" : info.status === "not_detected" ? "Not reported in a newer complete review. This is not a verified repair." : info.status === "historical" ? "A newer review exists. This finding has not been individually rechecked." : "Reported in the latest completed review of this PR.";
   const date = info.at && !Number.isNaN(Date.parse(info.at)) ? new Date(info.at).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "";
   const reference = info.reviewId && <Link prefetch={false} className={styles.reference} title={`${explanation}${date ? ` · ${date}` : ""}`} href={`/dashboard?${new URLSearchParams({ view: "reviews", repositoryId: String(repositoryId), jobId: info.reviewId })}`}>{info.source === "verified_fix" ? "Review details" : "Latest review"}{info.commit ? ` · ${info.commit.slice(0, 7)}` : ""}</Link>;
@@ -38,7 +39,7 @@ export function FindingStatusControl({ value, organizationId, repositoryId, jobI
       {date && <small><time dateTime={info.at}>{date}</time></small>}
       {reference}
     </>}
-    {organizationId && (info.status !== "resolved" || manual) && <button type="button" onClick={() => void save()} disabled={pending} aria-busy={pending} aria-label={`${manual ? "Undo manual resolution for" : "Mark as resolved:"} ${title}`}>{manual ? "Undo manual resolution" : "Mark resolved"}</button>}
+    {organizationId && showResolutionAction && <button type="button" onClick={() => void save()} disabled={pending} aria-busy={pending} aria-label={`${manual ? "Undo manual resolution for" : "Mark as resolved:"} ${title}`}>{manual ? "Undo manual resolution" : "Mark resolved"}</button>}
     <span className="sr-only" role="status">{pending ? "Saving finding status…" : ""}</span>
     <Notification tone="error" message={error} notificationKey={errorNotificationKey} />
   </div>;
