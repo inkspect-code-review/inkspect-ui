@@ -19,7 +19,7 @@ import shared from "./dashboard.module.css";
 import styles from "./settings.module.css";
 
 export type SettingsSection = { id: string; label: string; description: string; icon: LucideIcon; content: ReactNode };
-type SettingsExtensions = { additionalSections?: readonly SettingsSection[]; defaultSection?: string; accountFields?: ReactNode };
+type SettingsExtensions = { additionalSections?: readonly SettingsSection[]; defaultSection?: string; accountFields?: ReactNode; accountFooter?: ReactNode };
 type SettingsWorkspaceProps = SettingsExtensions & {
   organization: DashboardOrganization;
   canManage: boolean;
@@ -33,7 +33,7 @@ export function SettingsWorkspace(props: SettingsWorkspaceProps) {
   return <WorkspaceSettings {...props} />;
 }
 
-function WorkspaceSettings({ organization, canManage, user, signInMethods, logoUploadsEnabled, workspaceFooter, additionalSections, defaultSection, accountFields }: SettingsWorkspaceProps) {
+function WorkspaceSettings({ organization, canManage, user, signInMethods, logoUploadsEnabled, workspaceFooter, additionalSections, defaultSection, accountFields, accountFooter }: SettingsWorkspaceProps) {
   const router = useRouter();
   const { notify, clearToast } = useNotifications();
   const [name, setName] = useState(organization.name);
@@ -71,7 +71,7 @@ function WorkspaceSettings({ organization, canManage, user, signInMethods, logoU
     } finally { setSaving(false); }
   }
 
-  return <SettingsTabs user={user} signInMethods={signInMethods} additionalSections={additionalSections} defaultSection={defaultSection} accountFields={accountFields} workspace={<>
+  return <SettingsTabs user={user} signInMethods={signInMethods} additionalSections={additionalSections} defaultSection={defaultSection} accountFields={accountFields} accountFooter={accountFooter} workspace={<>
         <section className={styles.section} aria-labelledby="workspace-settings-heading">
           <header className={styles.sectionHeader}>
             <div><h2 id="workspace-settings-heading">Workspace</h2><p>The shared home for your repositories and reviews.</p></div>
@@ -105,7 +105,7 @@ type AccountSettingsProps = SettingsExtensions & {
   signInMethods?: SignInMethod[];
 };
 
-function AccountSettings({ user, signInMethods, accountFields }: AccountSettingsProps) {
+function AccountSettings({ user, signInMethods, accountFields, accountFooter }: AccountSettingsProps) {
   return <div className={styles.accountCards}><section className={`${styles.section} ${styles.accountCard}`} aria-labelledby="account-settings-heading">
     <header className={styles.sectionHeader}>
       <div><h2 id="account-settings-heading">Your account</h2><p>Your identity and sign-in methods across all workspaces.</p></div>
@@ -120,7 +120,7 @@ function AccountSettings({ user, signInMethods, accountFields }: AccountSettings
   <section className={`${styles.section} ${styles.accountCard}`} aria-labelledby="security-settings-heading">
     <header className={styles.sectionHeader}><div><h2 id="security-settings-heading">Security</h2><p>Protect your account with two-factor authentication and passkeys.</p></div></header>
     <AccountSecurity />
-  </section></div>;
+  </section>{accountFooter}</div>;
 }
 
 // The label stays the accessible name (it is the only visible text on narrow screens); the summary is its description.
@@ -132,7 +132,7 @@ function SettingsTab({ value, label, description, icon: Icon }: { value: string;
   </Tabs.Trigger>;
 }
 
-function SettingsTabs({ workspace, reviewProvider, user, signInMethods, additionalSections = [], defaultSection, accountFields }: AccountSettingsProps & { workspace?: ReactNode; reviewProvider?: ReactNode }) {
+function SettingsTabs({ workspace, reviewProvider, user, signInMethods, additionalSections = [], defaultSection, accountFields, accountFooter }: AccountSettingsProps & { workspace?: ReactNode; reviewProvider?: ReactNode }) {
   const sections = additionalSections.filter(section => !["workspace", "review-provider", "account", "appearance"].includes(section.id));
   const available = ["account", "appearance", ...(workspace ? ["workspace"] : []), ...(reviewProvider ? ["review-provider"] : []), ...sections.map(section => section.id)];
   const initialSection = defaultSection && available.includes(defaultSection) ? defaultSection : workspace ? "workspace" : "account";
@@ -146,7 +146,7 @@ function SettingsTabs({ workspace, reviewProvider, user, signInMethods, addition
     </Tabs.List>
     {workspace && <Tabs.Content className={styles.tabPanel} value="workspace" forceMount>{workspace}</Tabs.Content>}
     {reviewProvider && <Tabs.Content className={styles.tabPanel} value="review-provider" forceMount>{reviewProvider}</Tabs.Content>}
-    <Tabs.Content className={`${styles.tabPanel} ${styles.accountPanel}`} value="account" forceMount><AccountSettings user={user} signInMethods={signInMethods} accountFields={accountFields} /></Tabs.Content>
+    <Tabs.Content className={`${styles.tabPanel} ${styles.accountPanel}`} value="account" forceMount><AccountSettings user={user} signInMethods={signInMethods} accountFields={accountFields} accountFooter={accountFooter} /></Tabs.Content>
     {sections.map(section => <Tabs.Content key={section.id} className={styles.tabPanel} value={section.id} forceMount>{section.content}</Tabs.Content>)}
     <Tabs.Content className={styles.tabPanel} value="appearance" forceMount><ThemePicker /></Tabs.Content>
   </Tabs.Root>;

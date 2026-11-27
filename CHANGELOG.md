@@ -6,6 +6,8 @@ as appropriate. The package's `0.1.0` version is not a claim of a tagged release
 
 ## Unreleased
 
+- 2026-11-27 — Allow dashboard editions to place actions after the account security settings.
+
 - 2026-11-27 — Choose top-to-bottom or left-to-right PR diagrams in workspace review settings.
 
 - 2026-11-27 — Support repository labels, additional completed reports and confirmation for individual review runs.
