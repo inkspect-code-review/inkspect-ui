@@ -24,7 +24,7 @@ import { SearchableSelect } from "./ui/searchable-select";
 import { subscribeFindingStatusChanges } from "@inkspect/core/lib/finding-status-events";
 import { Skeleton } from "./ui/skeleton";
 
-import { historyEntries, type AdditionalHistory, type HistoryEntry } from "./review-history-list";
+import { historyEntries, readHistoryPages, type AdditionalHistory, type HistoryEntry } from "./review-history-list";
 
 export type { AdditionalHistory } from "./review-history-list";
 
@@ -47,7 +47,8 @@ export function ReviewWorkspace({ organizationId, initialRepositories, additiona
   const visibleReviews = historyEntries(loadedRepository === repository ? reviews : [], extra.repository === repository ? extra.pages.flat() : []);
   const [linkedExtra, setLinkedExtra] = useState(additionalHistory?.linkedId);
   const activeId = visibleReviews.some(row => row.id === selectedId) ? selectedId : linkedExtra || visibleReviews[0]?.id;
-  const extraSelected = additionalHistory && activeId && (activeId === linkedExtra || (extra.repository === repository && extra.pages.some(rows => rows.some(row => row.id === activeId))));
+  const nativeSelected = loadedRepository === repository && reviews.some(row => row.job.id === activeId);
+  const extraSelected = additionalHistory && !nativeSelected && activeId && (activeId === linkedExtra || (extra.repository === repository && extra.pages.some(rows => rows.some(row => row.id === activeId))));
   const [report, setReport] = useState<{ jobId: string; value: ReportResponse } | null>(null);
   const [findingStatusRevision, setFindingStatusRevision] = useState(0);
   useEffect(() => subscribeFindingStatusChanges(organizationId, () => setFindingStatusRevision(value => value + 1)), [organizationId]);
@@ -152,14 +153,14 @@ export function ReviewWorkspace({ organizationId, initialRepositories, additiona
       controller = new AbortController();
       try {
         const value = additionalHistory && (!additionalHistory.connected || !nativeRepo) ? { reviews: [] } : await request(repository ? "jobs" : "history", {}, undefined, controller.signal);
-        const linked = linkedReview.current && (!repository || repository === linkedReview.current.repositoryId) ? linkedReview.current : null;
+        const linked = linkedReview.current && linkedReview.current.jobId !== additionalHistory?.linkedId && (!repository || repository === linkedReview.current.repositoryId) ? linkedReview.current : null;
         const sorted = await reviewsWithLinkedJob(value.reviews, linked, () => request("job", { jobId: linked!.jobId, repositoryId: String(linked!.repositoryId) }, undefined, controller!.signal));
         if (!stopped) {
           setHistoryWarning(value.unavailable_repositories ? `${value.unavailable_repositories} repositories could not be loaded. Showing available reviews.` : "");
           setLoadedRepository(repository); setReviews(sorted);
           const requested = linkedJob.current;
           setSelectedId(id => additionalHistory ? requested || id : selectedReviewId(sorted, id, requested));
-          if (requested && sorted.some(row => row.job.id === requested)) linkedJob.current = null;
+          if (requested && (additionalHistory || sorted.some(row => row.job.id === requested))) linkedJob.current = null;
         }
       } catch (error) { reportBrowserError("browser.review.workspace", error); if (!stopped && !controller.signal.aborted) {
           setError((error as Error).message);
@@ -177,18 +178,15 @@ export function ReviewWorkspace({ organizationId, initialRepositories, additiona
     let timer: ReturnType<typeof setTimeout>;
     async function load() {
       try {
-        const page = await additionalHistory!.read(repository, extraPage, controller.signal);
+        const { pages, hasMore } = await readHistoryPages(additionalHistory!.read, repository, extraPage, controller.signal);
         if (controller.signal.aborted) return;
-        setExtra(previous => {
-          const pages = previous.repository === repository ? [...previous.pages] : [];
-          pages[extraPage - 1] = page.entries;
-          return { repository, pages, hasMore: page.hasMore };
-        });
+        setExtra({ repository, pages, hasMore });
+        if (pages.length < extraPage) setExtraPage(pages.length);
         setExtraError("");
       } catch {
         if (!controller.signal.aborted) setExtraError("Could not load additional reviews.");
       } finally {
-        if (!controller.signal.aborted && extraPage === 1) timer = setTimeout(load, 30_000);
+        if (!controller.signal.aborted) timer = setTimeout(load, 30_000);
       }
     }
     void load();
@@ -272,7 +270,7 @@ export function ReviewWorkspace({ organizationId, initialRepositories, additiona
         <SearchableSelect id="review-repository" label="Repository" value={String(repository)} disabled={loading || pending}
           placeholder={loading ? "Loading repositories…" : "Choose a repository"} searchPlaceholder="Search repositories…" emptyMessage="No matching repositories."
           options={[{ value: "0", label: "All repositories" }, ...historyOptions.map(repo => ({ value: String(repo.id), label: `${repo.full_name}${repo.archived ? " (Disconnected)" : ""}` }))]}
-          onValueChange={value => { if (Number(value) === repository) return; setRepository(Number(value)); setLinkedExtra(undefined); setExtraPage(1); setExtraError(""); setPage(1); setPulls([]); setPullNumber(0); setHasMore(false); setSelectedId(""); setLoadedRepository(-1); setReviews([]); setReport(null); setComposing(false); setError(""); }} />
+          onValueChange={value => { if (Number(value) === repository) return; linkedJob.current = null; linkedReview.current = null; setRepository(Number(value)); setLinkedExtra(undefined); setExtraPage(1); setExtraError(""); setPage(1); setPulls([]); setPullNumber(0); setHasMore(false); setSelectedId(""); setLoadedRepository(-1); setReviews([]); setReport(null); setComposing(false); setError(""); }} />
       </div>
       <div className={styles.historyHeading}><h2>Review history</h2><span>Newest first</span></div>
       <Notification tone="info" message={historyWarning || extraError} action={extraError ? { label: "Retry", onClick: () => setRefresh(v => v + 1) } : undefined} />
@@ -280,7 +278,7 @@ export function ReviewWorkspace({ organizationId, initialRepositories, additiona
         {detailLoading ? <p>Loading reviews…</p> : !visibleReviews.length ? <p>{historySupplement ? "No workspace reviews yet." : "No reviews yet. Start with an open pull request."}</p> : <ol>{visibleReviews.map((row, index) => {
           const summary = row.summary;
           return <li key={row.id}>
-          <button aria-current={row.id === activeId ? "true" : undefined} data-findings-tone={summary?.open ? summary.urgent ? "danger" : "warning" : undefined} onClick={() => { setSelectedId(row.id); setLinkedExtra(undefined); setComposing(false); }}>
+          <button aria-current={row.id === activeId ? "true" : undefined} data-findings-tone={summary?.open ? summary.urgent ? "danger" : "warning" : undefined} onClick={() => { linkedJob.current = null; setSelectedId(row.id); setLinkedExtra(undefined); setComposing(false); }}>
             <span className={styles.historyTitle}><GitPullRequest size={15} /><strong>PR #{row.number}</strong>{index === 0 && <small>Latest</small>}</span>
             <span className={styles.historySubtitle}>{!repository && <span className={styles.historyRepository}>{row.repositoryName || historyOptions.find(repo => repo.id === row.repositoryId)?.full_name || "Repository"}</span>}{pulls.find(item => item.number === Number(row.number) && row.repositoryId === activeRepository)?.title || `Commit ${row.head.slice(0, 7)}`}</span>
             <span className={styles.historyMeta}><span className={styles.status} data-status={row.status}>{row.status.replaceAll("_", " ")}</span><time dateTime={row.createdAt} title={new Date(row.createdAt).toLocaleString()}>{new Date(row.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })} {new Date(row.createdAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</time></span>
@@ -297,7 +295,7 @@ export function ReviewWorkspace({ organizationId, initialRepositories, additiona
         {ReviewRepositoryAction && actionRepository && <ReviewRepositoryAction key={actionRepository.id} repositoryId={actionRepository.id} repositoryName={actionRepository.full_name} />}
       </div>{!detailLoading && <button aria-haspopup="dialog" onClick={openComposer} disabled={!repositories.length || pending}><Plus size={14} />New review</button>}</header>
       <Notification tone="error" message={error} action={{ label: "Retry loading reviews", onClick: () => { setError(""); setRefresh(v => v + 1); setRevision(v => v + 1); } }} />
-      {detailLoading && !linkedExtra ? !error && <ReviewSkeleton /> : <>
+      {detailLoading && (!linkedExtra || !repositoriesReady || loadedRepository !== repository) ? !error && <ReviewSkeleton /> : <>
       <Dialog.Root open={composing} onOpenChange={open => { if (!pending) setComposing(open); }}>
         <Dialog.Portal><Dialog.Overlay className={styles.composerOverlay} />
         <Dialog.Content id="review-composer" className={styles.composer} aria-busy={pending} onCloseAutoFocus={event => {

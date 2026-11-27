@@ -25,3 +25,16 @@ export function historyEntries(jobs: ReviewJob[], additional: HistoryEntry[]) {
   };
   return [...byId.values()].sort((a, b) => time(b) - time(a) || b.id.localeCompare(a.id));
 }
+
+// Refresh the loaded window together so insertions on page one do not drop boundary rows.
+export async function readHistoryPages(read: AdditionalHistory["read"], repository: number, count: number, signal: AbortSignal) {
+  const pages: HistoryEntry[][] = [];
+  let hasMore = true;
+  for (let number = 1; number <= count && hasMore; number++) {
+    signal.throwIfAborted();
+    const result = await read(repository, number, signal);
+    pages.push(result.entries);
+    hasMore = result.hasMore;
+  }
+  return { pages, hasMore };
+}
