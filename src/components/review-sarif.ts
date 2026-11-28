@@ -1,4 +1,4 @@
-import type { ReviewReport } from "@inkspect/core/lib/review-types";
+import type { SavedReport } from "./review-report";
 
 const ruleId = "inkspect/code-review";
 const levels: Record<string, string> = {
@@ -18,11 +18,11 @@ function anchorHash(path: string, title: string) {
   return hash.toString(16).padStart(16, "0");
 }
 
-export function reviewSarif({ run, findings }: ReviewReport) {
+export function reviewSarif({ run, findings }: SavedReport) {
   const occurrences = new Map<string, number>();
-  const ordered = [...findings].sort((a, b) => a.location.start_line - b.location.start_line || a.location.end_line - b.location.end_line);
+  const ordered = [...findings].sort((a, b) => (a.location?.start_line ?? 0) - (b.location?.start_line ?? 0) || (a.location?.end_line ?? 0) - (b.location?.end_line ?? 0));
   const results = ordered.map(finding => {
-    const { path, start_line, end_line } = finding.location;
+    const { path = "", start_line, end_line } = finding.location ?? {};
     const hash = anchorHash(path, finding.title);
     const occurrence = (occurrences.get(hash) ?? 0) + 1;
     occurrences.set(hash, occurrence);
@@ -30,15 +30,15 @@ export function reviewSarif({ run, findings }: ReviewReport) {
       ruleId,
       level: levels[finding.severity.toLowerCase()] ?? "warning",
       message: { text: [finding.title, finding.reason].filter(Boolean).join("\n\n") },
-      locations: [{ physicalLocation: {
+      locations: path ? [{ physicalLocation: {
         artifactLocation: { uri: path.split("/").map(encodeURIComponent).join("/"), uriBaseId: "%SRCROOT%" },
-        region: { startLine: start_line, endLine: end_line },
-      } }],
+        ...(start_line && { region: { startLine: start_line, endLine: end_line } }),
+      } }] : [],
       partialFingerprints: { primaryLocationLineHash: `${hash}:${occurrence}` },
       properties: { severity: finding.severity, advisory: finding.advisory === true },
     };
   });
-  const complete = run.status === "completed" && run.coverage_complete;
+  const complete = run.status === "completed" && run.coverage_complete !== false;
   return {
     $schema: "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
     version: "2.1.0",
@@ -48,13 +48,13 @@ export function reviewSarif({ run, findings }: ReviewReport) {
       invocations: [{ executionSuccessful: complete, ...(!complete && { toolExecutionNotifications: [
         { level: "warning", message: { text: "Inkspect could not review the full requested scope." } },
       ] }) }],
-      properties: { revision: run.target.revision_id, baseRevision: run.base.revision_id, coverageComplete: run.coverage_complete, excludedFiles: run.exclusions?.excluded_files ?? 0 },
+      properties: { revision: run.target.revision_id, baseRevision: run.base.revision_id, ...(run.coverage_complete !== null && { coverageComplete: run.coverage_complete }), ...(run.excludedFiles !== null && { excludedFiles: run.excludedFiles ?? run.exclusions?.excluded_files ?? 0 }) },
       results,
     }],
   };
 }
 
-export function downloadReviewSarif(report: ReviewReport) {
+export function downloadReviewSarif(report: SavedReport) {
   const data = JSON.stringify(reviewSarif(report), null, 2);
   const url = URL.createObjectURL(new Blob([data], { type: "application/sarif+json" }));
   try {

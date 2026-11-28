@@ -10,17 +10,18 @@ import { signInMethodSummary } from "@inkspect/core/lib/login-providers";
 
 import type { ComponentType, ReactNode } from "react";
 import { cookies } from "next/headers";
-import type { Auth } from "@inkspect/core/lib/github";
+import type { Auth, Repository } from "@inkspect/core/lib/github";
 import { createSessionHelpers } from "@inkspect/core/lib/session";
 import type { DashboardShellProps } from "../components/dashboard-shell";
 import { WorkspaceChat } from "../components/workspace-chat";
 import { SidebarProvider } from "../components/sidebar-provider";
 import { sidebarCookie } from "@inkspect/core/lib/sidebar";
 
-export function createWorkspacePages({ getAuth, Dashboard, edition, canCreateOrganization, dashboardExtras, memberSections = ["members", "usage"] }: {
+export function createWorkspacePages({ getAuth, Dashboard, edition, canCreateOrganization, dashboardExtras, additionalChatRepositories, memberSections = ["members", "usage"] }: {
   getAuth: () => Auth; Dashboard: ComponentType<DashboardShellProps>; edition: DashboardEdition;
   canCreateOrganization: (user: { id: string; emailVerified: boolean }) => boolean | Promise<boolean>;
   memberSections?: readonly string[];
+  additionalChatRepositories?: (organizationId: string, userId: string) => Promise<Repository[]>;
   dashboardExtras?: (query: { reason?: string | string[]; repository?: string | string[] }) => Partial<DashboardShellProps>;
 }) {
   const { requireSession } = createSessionHelpers(getAuth);
@@ -77,6 +78,8 @@ async function WorkspaceLayout({ children }: { children: ReactNode }) {
   const organizations = await getAuth().api.listOrganizations({ headers: await headers() });
   const active = organizations.find((organization) => organization.id === session.session.activeOrganizationId);
   const github = active ? await workspaceStatus(active.id, session.user.id, getAuth()) : undefined;
+  const saved = active && additionalChatRepositories ? await additionalChatRepositories(active.id, session.user.id) : [];
+  const connected = github?.repositories ?? [];
   const scopeKey = JSON.stringify([session.user.id, active?.id]);
   const collapsed = (await cookies()).get(sidebarCookie)?.value === "1";
 
@@ -84,7 +87,7 @@ async function WorkspaceLayout({ children }: { children: ReactNode }) {
   // A user/workspace change still gets a separate instance and access checks.
   return <SidebarProvider initialCollapsed={collapsed}>{children}{active && <WorkspaceChat key={scopeKey} scopeKey={scopeKey}
     panelId={`workspace-chat-${active.id}`} organizationId={active.id} organizationName={active.name}
-    repositories={github?.repositories ?? []} />}</SidebarProvider>;
+    repositories={[...connected, ...saved.filter(r => !connected.some(c => c.id === r.id))]} />}</SidebarProvider>;
 }
 
 return { DashboardPage, OnboardingPage, WorkspaceLayout };

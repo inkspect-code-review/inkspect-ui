@@ -6,6 +6,12 @@ as appropriate. The package's `0.1.0` version is not a claim of a tagged release
 
 ## Unreleased
 
+- 2026-11-27 — Keep paginated review history current and preserve repository and selection when opening linked reviews.
+
+- 2026-11-27 — Include additional authorized repositories in the workspace chat picker.
+- 2026-11-27 — Show additional findings and saved reviews in the standard timeline, report tabs, and SARIF export.
+- 2026-11-27 — Render published review diagrams in the behavior map.
+
 - 2026-11-27 — Choose top-to-bottom or left-to-right PR diagrams in workspace review settings.
 
 - 2026-11-27 — Support repository labels, additional completed reports and confirmation for individual review runs.
