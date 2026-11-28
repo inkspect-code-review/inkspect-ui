@@ -1,4 +1,4 @@
-FROM node:22-bookworm-slim AS build
+FROM node:25-bookworm-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY vendor ./vendor
@@ -7,7 +7,7 @@ COPY . .
 ARG INKSPECT_API_ORIGIN=http://api:3003
 ENV INKSPECT_API_ORIGIN=$INKSPECT_API_ORIGIN NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
-FROM node:22-bookworm-slim
+FROM node:25-bookworm-slim
 WORKDIR /app
 ENV NODE_ENV=production HOSTNAME=0.0.0.0 PORT=3002
 COPY --from=build --chown=node:node /app/.next/standalone ./
