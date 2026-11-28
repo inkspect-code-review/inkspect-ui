@@ -21,7 +21,7 @@ import { subscribeFindingStatusChanges } from "@inkspect/core/lib/finding-status
 
 const statusOptions = [{ value: "all", label: "All history" }, { value: "open", label: "Open" }, { value: "resolved", label: "Resolved" }, { value: "not_detected", label: "Not detected in latest review" }, { value: "historical", label: "Earlier reviews" }];
 
-export function FindingsPanel({ organizationId, workspaceName, canManage, connected, repositories }: { organizationId: string; workspaceName: string; canManage: boolean; connected: boolean; repositories: ReviewRepository[] }) {
+export function FindingsPanel({ organizationId, workspaceName, canManage, connected, repositories, findingsEndpoint }: { organizationId: string; workspaceName: string; canManage: boolean; connected: boolean; repositories: ReviewRepository[]; findingsEndpoint?: string }) {
   const params = useSearchParams();
   const [severity, setSeverity] = useState("all");
   const requestedStatus = params.get("status");
@@ -40,10 +40,11 @@ export function FindingsPanel({ organizationId, workspaceName, canManage, connec
   const [search, setSearch] = useState("");
   const [order, setOrder] = useState<FindingsOrder>({ sort: "date", direction: "desc" });
   const [catalog, setCatalog] = useState<{ status: "loading" | "ready" | "error"; repositories: ReviewRepository[] }>({ status: "loading", repositories });
-  const repositoryId = catalog.repositories.some(repo => String(repo.id) === params.get("repositoryId")) ? params.get("repositoryId")! : "0";
+  const choices = findingsEndpoint ? repositories : catalog.repositories;
+  const repositoryId = choices.some(repo => String(repo.id) === params.get("repositoryId")) ? params.get("repositoryId")! : "0";
   const repositoryRevision = JSON.stringify(repositories);
   useEffect(() => {
-    if (!connected) return;
+    if (!connected || findingsEndpoint) return;
     const controller = new AbortController();
     productFetch(`/api/reviews?${new URLSearchParams({ organizationId, action: "repositories" })}`, { cache: "no-store", signal: controller.signal }).then(async response => {
       const value = await response.json();
@@ -55,15 +56,15 @@ export function FindingsPanel({ organizationId, workspaceName, canManage, connec
       setCatalog(current => ({ ...current, status: "error" }));
     });
     return () => controller.abort();
-  }, [organizationId, connected, repositoryRevision]);
+  }, [organizationId, connected, repositoryRevision, findingsEndpoint]);
   const toggleSort = (sort: FindingsOrder["sort"]) => setOrder(current => ({ sort, direction: current.sort === sort && current.direction === "desc" ? "asc" : "desc" }));
   useEffect(() => {
     const timer = setTimeout(() => setSearch(query.trim()), 300);
     return () => clearTimeout(timer);
   }, [query]);
   const hasFilters = repositoryId !== "0" || severity !== "all" || status !== "all" || !!query || period !== "all";
-  if (!connected || (catalog.status === "ready" && !catalog.repositories.length)) return <RepositoryConnectionCard section="findings" workspaceName={workspaceName} canManage={canManage} />;
-  if (!catalog.repositories.length) return catalog.status === "error" ? <Notification tone="error" message="Your review repositories couldn’t be loaded. Refresh the page to try again." action={{ label: "Refresh page", onClick: () => window.location.reload() }} /> : <p className={styles.empty} role="status">Loading review repositories…</p>;
+  if (!connected || ((findingsEndpoint || catalog.status === "ready") && !choices.length)) return <RepositoryConnectionCard section="findings" workspaceName={workspaceName} canManage={canManage} />;
+  if (!choices.length) return catalog.status === "error" ? <Notification tone="error" message="Your review repositories couldn’t be loaded. Refresh the page to try again." action={{ label: "Refresh page", onClick: () => window.location.reload() }} /> : <p className={styles.empty} role="status">Loading review repositories…</p>;
   return <div className={styles.workspace}>
     <div className={styles.filters} role="search" aria-label="Filter findings">
       <div className={styles.searchRow}>
@@ -77,7 +78,7 @@ export function FindingsPanel({ organizationId, workspaceName, canManage, connec
         <div className={styles.field}>
           <label htmlFor="findings-repository">Repository</label>
           <SearchableSelect id="findings-repository" label="Repository" value={repositoryId} onValueChange={setRepositoryId}
-            options={[{ value: "0", label: "All repositories" }, ...catalog.repositories.map(repository => ({ value: String(repository.id), label: `${repository.full_name}${repository.archived ? " (Disconnected)" : ""}` }))]}
+            options={[{ value: "0", label: "All repositories" }, ...choices.map(repository => ({ value: String(repository.id), label: `${repository.full_name}${repository.archived ? " (Disconnected)" : ""}` }))]}
             placeholder="All repositories" searchPlaceholder="Search repositories…" emptyMessage="No repositories found." />
         </div>
         <div className={styles.field}>
@@ -95,11 +96,11 @@ export function FindingsPanel({ organizationId, workspaceName, canManage, connec
         }}>Clear filters</button>
       </div>
     </div>
-    <FindingsList key={JSON.stringify([repositoryId, severity, status, search, from, before, order])} organizationId={organizationId} repositoryId={repositoryId} severity={severity} status={status} query={search} from={from} before={before} order={order} onSort={toggleSort} />
+    <FindingsList endpoint={findingsEndpoint ?? "/api/reviews"} key={JSON.stringify([organizationId, findingsEndpoint, repositoryId, severity, status, search, from, before, order])} organizationId={organizationId} repositoryId={repositoryId} severity={severity} status={status} query={search} from={from} before={before} order={order} onSort={toggleSort} />
   </div>;
 }
 
-function FindingsList({ organizationId, repositoryId, severity, status, query, from, before, order, onSort }: { organizationId: string; repositoryId: string; severity: string; status: string; query: string; from: string; before: string; order: FindingsOrder; onSort: (sort: FindingsOrder["sort"]) => void }) {
+function FindingsList({ endpoint, organizationId, repositoryId, severity, status, query, from, before, order, onSort }: { endpoint: string; organizationId: string; repositoryId: string; severity: string; status: string; query: string; from: string; before: string; order: FindingsOrder; onSort: (sort: FindingsOrder["sort"]) => void }) {
   const [data, setData] = useState<FindingsResponse | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -113,7 +114,7 @@ function FindingsList({ organizationId, repositoryId, severity, status, query, f
     if (cursor) params.set("cursor", cursor);
     if (from) params.set("from", from);
     if (before) params.set("before", before);
-    productFetch(`/api/reviews?${params}`, { cache: "no-store", signal: controller.signal }).then(async response => {
+    productFetch(`${endpoint}?${params}`, { cache: "no-store", signal: controller.signal }).then(async response => {
       const value = await response.json();
       if (!response.ok) throw new Error(value.error || "Could not load findings.");
       if (!controller.signal.aborted) { setData(value); setError(""); }
@@ -123,7 +124,7 @@ function FindingsList({ organizationId, repositoryId, severity, status, query, f
       setError(error.message);
     }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [organizationId, repositoryId, severity, status, query, from, before, cursor, revision, order.sort, order.direction]);
+  }, [endpoint, organizationId, repositoryId, severity, status, query, from, before, cursor, revision, order.sort, order.direction]);
   const findings = data?.findings ?? [];
   const filtered = repositoryId !== "0" || severity !== "all" || status !== "all" || !!query || !!from || !!before;
   const goToPage = (next: (string | null)[]) => { setData(null); setError(""); setLoading(true); setCursors(next); };
@@ -221,7 +222,7 @@ function FindingItem({ finding, organizationId, now }: { finding: FindingRow; or
       <p className={styles.context}>{finding.repository}{finding.pullNumber && ` · PR #${finding.pullNumber}`}{finding.advisory && " · Advisory"}</p>
     </div>
     <div className={styles.rowStatus}>
-      {finding.resolution ? <FindingStatusControl inline value={finding.resolution} organizationId={organizationId} repositoryId={finding.repositoryId} jobId={finding.jobId} ordinal={finding.ordinal} findingId={finding.id} title={finding.title} /> : <span>Status unavailable</span>}
+      {finding.resolution ? <FindingStatusControl inline value={finding.resolution} organizationId={finding.readOnly ? undefined : organizationId} repositoryId={finding.repositoryId} jobId={finding.jobId} ordinal={finding.ordinal} findingId={finding.id} title={finding.title} /> : <span>Status unavailable</span>}
     </div>
     <div className={styles.actions}>
       {validDate ? <time dateTime={finding.createdAt} title={date.toLocaleString()} aria-label={`Reviewed ${date.toLocaleString()}`}>{timelineTime(date, now)}</time> : "—"}

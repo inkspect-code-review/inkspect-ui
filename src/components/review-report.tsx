@@ -8,7 +8,27 @@ import type { ReportResponse, ReviewReport, ReviewScore } from "@inkspect/core/l
 import { allFindingFixPrompts, findingFixPrompt } from "@inkspect/core/lib/review-prompts";
 import styles from "./reviews.module.css";
 import { FindingStatusControl } from "./finding-status-control";
+import { PublishedReviewDiagram, publishedDiagramSource } from "./published-review-diagram";
 import { downloadReviewSarif } from "./review-sarif";
+
+// Historic reports can omit coverage, a verdict or a finding location.
+export type SavedReport = Pick<ReviewReport, "summary" | "scores" | "change_alignment" | "diagram" | "presentation_notes" | "presentation" | "assessments" | "evidence"> & {
+  decision: ReviewReport["decision"] | null;
+  diagramSource?: string;
+  run: Pick<ReviewReport["run"], "id" | "status" | "target" | "base" | "exclusions" | "review_notes"> & {
+    coverage_complete: boolean | null;
+    excludedFiles?: number | null;
+    freshness?: ReviewReport["run"]["freshness"];
+  };
+  findings: (Omit<ReviewReport["findings"][number], "location"> & {
+    location: { path: string; start_line?: number; end_line?: number } | null;
+  })[];
+  verification_gaps: { reason: string; blocking: boolean | null }[];
+};
+type DisplayValue = ReportResponse | {
+  report: SavedReport;
+  freshness_check?: undefined; finding_statuses?: undefined; fix_prompt?: undefined;
+};
 
 function CopyPromptButton({ value, label = "Copy", ariaLabel, className, successMessage = "Fix prompt copied to clipboard.", onFailure, onSuccess }: { value: string; label?: string; ariaLabel: string; className?: string; successMessage?: string; onFailure: () => void; onSuccess?: () => void }) {
   const [status, setStatus] = useState<"idle" | "copying" | "copied" | "failed">("idle");
@@ -59,6 +79,13 @@ export function ReviewDiagram({ diagram }: { diagram: NonNullable<ReviewReport["
     return <g key={index}><path d={`M${x1},${y1} L${x2},${y2}`} fill="none" stroke="currentColor" strokeDasharray={edge.missing ? "5 5" : undefined} markerEnd={`url(#${marker})`}><title>{edge.label || `${edge.from} to ${edge.to}`}</title></path></g>;
   })}{diagram.nodes.map((node) => { const p = positions.get(node.id)!; const words = node.label.match(/.{1,24}(?:\s|$)|.{1,24}/g) || [node.label]; return <g key={node.id} className={node.issue ? styles.issueNode : styles.node}><title>{node.label}</title><rect x={p.x - 100} y={p.y - 30} width={200} height={60} rx={6} /><text x={p.x} y={p.y - (Math.min(words.length, 3) - 1) * 8} textAnchor="middle">{words.slice(0, 3).map((word, i) => <tspan key={i} x={p.x} dy={i ? 16 : 0}>{word.trim()}</tspan>)}</text></g>; })}</svg></div></figure>;
 }
+function ReportDiagram({ report }: { report: SavedReport }) {
+  if (!report.diagram) return null;
+  const fallback = <ReviewDiagram diagram={report.diagram} />;
+  const source = report.diagramSource || publishedDiagramSource(report.presentation?.github_summary);
+  return source ? <PublishedReviewDiagram key={source} source={source} diagram={report.diagram} fallback={fallback} /> : fallback;
+}
+
 const decisions = {
   needs_changes: "Changes requested",
   needs_evidence: "More verification needed",
@@ -91,26 +118,26 @@ function ScoreCard({ label, value }: { label: string; value: ReviewScore }) {
   </section>;
 }
 
-function Findings({ value, organizationId }: { value: ReportResponse; organizationId?: string }) {
+function Findings({ value, organizationId }: { value: DisplayValue; organizationId?: string }) {
   const r = value.report;
-  const allPrompts = allFindingFixPrompts(value);
+  const allPrompts = "finding_prompts" in value ? allFindingFixPrompts(value) : "";
   const [copyFailed, setCopyFailed] = useState(false);
   return <section id="review-findings" className={styles.reportSection} aria-labelledby="review-findings-title">
-    <div className={styles.sectionHeading}><h3 id="review-findings-title">Findings <span className={styles.findingCount}>{r.findings.length}</span></h3>{r.findings.length > 0 && <CopyPromptButton value={allPrompts} label="Copy fix prompts" ariaLabel="Copy fix prompts for all findings" onFailure={() => setCopyFailed(true)} onSuccess={() => setCopyFailed(false)} />}</div>
+    <div className={styles.sectionHeading}><h3 id="review-findings-title">Findings <span className={styles.findingCount}>{r.findings.length}</span></h3>{"finding_prompts" in value && r.findings.length > 0 && <CopyPromptButton value={allPrompts} label="Copy fix prompts" ariaLabel="Copy fix prompts for all findings" onFailure={() => setCopyFailed(true)} onSuccess={() => setCopyFailed(false)} />}</div>
     {copyFailed && <div className={styles.copyFallback}><textarea aria-label="All finding fix prompts" readOnly value={allPrompts} rows={6} onFocus={event => event.currentTarget.select()} /></div>}
     {!r.findings.length && <p className={styles.muted}>No findings on the reviewed changes. Check the Verification tab before merging.</p>}
     <div className={styles.findingList}>{r.findings.map((f, index) => <article key={`${f.id}:${index}`} className={styles.finding} data-finding-status={value.finding_statuses?.[index]?.status}>
       <header><span className={styles.severity} data-severity={f.severity}>{f.severity}</span><h4>{f.title}</h4>{f.advisory && <span className={styles.badge}>Advisory</span>}</header>
-      <code className={styles.findingLocation}>{f.location.path}:{f.location.start_line}{f.location.end_line !== f.location.start_line ? `–${f.location.end_line}` : ""}</code>
+      {f.location && <code className={styles.findingLocation}>{f.location.path}{f.location.start_line && `:${f.location.start_line}`}{f.location.end_line && f.location.end_line !== f.location.start_line ? `–${f.location.end_line}` : ""}</code>}
       <FindingStatusControl value={value.finding_statuses?.[index]} organizationId={organizationId} repositoryId={Number(r.run.target.repository_id)} jobId={r.run.id} ordinal={index + 1} findingId={f.id} title={f.title} />
       <p>{f.reason}</p>
       <details className={styles.findingDetail}><summary>Suggested fix & verification</summary><dl><dt>Suggested fix</dt><dd>{f.suggestion}</dd><dt>How to verify</dt><dd>{f.verification}</dd></dl><EvidenceLinks ids={f.evidence_ids} /></details>
-      {findingFixPrompt(value, f.id).trim() && <FixPrompt value={findingFixPrompt(value, f.id)} label="AI fix prompt" />}
+      {"finding_prompts" in value && findingFixPrompt(value, f.id).trim() && <FixPrompt value={findingFixPrompt(value, f.id)} label="AI fix prompt" />}
     </article>)}</div>
   </section>;
 }
 
-function Evidence({ report: r }: { report: ReviewReport }) {
+function Evidence({ report: r }: { report: SavedReport }) {
   return <section id="review-evidence" className={styles.evidenceSection} aria-labelledby="review-evidence-title">
     <div className={styles.sectionHeading}><h3 id="review-evidence-title">Evidence</h3><span>{r.evidence.length}</span></div>
     {!r.evidence.length && <p className={styles.muted}>No separate evidence records were included.</p>}
@@ -121,8 +148,8 @@ function Evidence({ report: r }: { report: ReviewReport }) {
   </section>;
 }
 
-export function ReviewReportView({ value, details, fix, organizationId }: { value: ReportResponse; details?: ReactNode; fix?: ReactNode; organizationId?: string }) {
-  const r = value.report;
+export function ReviewReportView({ value, details, fix, organizationId }: { value: DisplayValue; details?: ReactNode; fix?: ReactNode; organizationId?: string }) {
+  const r: SavedReport = value.report;
   const [tab, setTab] = useState("overview");
   const openEvidence = (id: string) => {
     setTab("verification");
@@ -136,7 +163,7 @@ export function ReviewReportView({ value, details, fix, organizationId }: { valu
   return <article className={styles.report} aria-label="Review report">
     {r.run.freshness === "stale" && <p className={styles.notice}>The pull request or review context has changed. This report belongs to the recorded snapshot.</p>}
     <Notification tone="error" message={value.freshness_check === "unavailable" ? "Current PR freshness could not be checked." : ""} />
-    {(!r.run.coverage_complete || r.run.status !== "completed") && <p className={styles.notice}>Coverage is incomplete. Some areas could not be fully reviewed.</p>}
+    {(r.run.coverage_complete === false || r.run.status !== "completed") && <p className={styles.notice}>Coverage is incomplete. Some areas could not be fully reviewed.</p>}
     <EvidenceNavigation.Provider value={openEvidence}>
     {r.findings.length > 0 && fix}
     <Tabs.Root value={tab} onValueChange={setTab}>
@@ -150,7 +177,7 @@ export function ReviewReportView({ value, details, fix, organizationId }: { valu
       <Tabs.Content className={styles.tabPanel} value="overview" forceMount hidden={tab !== "overview"}>
     <section className={styles.overview} aria-labelledby="review-decision">
       <div className={styles.sectionHeading}>
-        <div className={styles.decision} data-decision={r.decision}><span aria-hidden="true" /><h2 id="review-decision">{decisions[r.decision]}</h2></div>
+        <div className={styles.decision} data-decision={r.decision ?? undefined}><span aria-hidden="true" /><h2 id="review-decision">{r.decision ? decisions[r.decision] : "Review completed"}</h2></div>
         <button type="button" onClick={() => downloadReviewSarif(r)}>Download SARIF</button>
       </div>
       <p className={styles.reviewSummary}>{r.summary}</p>
@@ -162,12 +189,12 @@ export function ReviewReportView({ value, details, fix, organizationId }: { valu
     <Findings value={value} organizationId={organizationId} />
     {value.fix_prompt && r.findings.length > 1 && <FixPrompt label="AI fix prompt for all findings and verification gaps" value={value.fix_prompt} />}
       </Tabs.Content>
-      {r.diagram && <Tabs.Content className={styles.tabPanel} value="map" forceMount hidden={tab !== "map"}><ReviewDiagram diagram={r.diagram} /></Tabs.Content>}
+      {r.diagram && <Tabs.Content className={styles.tabPanel} value="map"><ReportDiagram report={r} /></Tabs.Content>}
       <Tabs.Content className={styles.tabPanel} value="verification" forceMount hidden={tab !== "verification"}>
     <section id="review-verification" className={styles.reportSection} aria-labelledby="review-verification-title">
       <div className={styles.sectionHeading}><h3 id="review-verification-title">Verification & scope</h3><span>{r.verification_gaps.length ? `${r.verification_gaps.length} gaps` : "No reported gaps"}</span></div>
-      {r.verification_gaps.map((gap, index) => <div className={styles.gap} key={index}><span className={styles.badge} data-warning={gap.blocking}>{gap.blocking ? "Blocking" : "Note"}</span><p>{gap.reason}</p></div>)}
-      <p className={styles.scopeNote}>{r.run.coverage_complete ? "Review coverage is complete for the included scope." : "Review coverage is incomplete."}{r.run.exclusions?.excluded_files ? ` ${r.run.exclusions.excluded_files} changed files were excluded by .inkspectignore at ${r.run.exclusions.ignore.revision.revision_id.slice(0, 7)}.` : ""}</p>
+      {r.verification_gaps.map((gap, index) => <div className={styles.gap} key={index}><span className={styles.badge} data-warning={gap.blocking === true}>{gap.blocking === null ? "Verification gap" : gap.blocking ? "Blocking" : "Note"}</span><p>{gap.reason}</p></div>)}
+      <p className={styles.scopeNote}>{r.run.coverage_complete === null ? "Coverage was not recorded for this review." : r.run.coverage_complete ? "Review coverage is complete for the included scope." : "Review coverage is incomplete."}{r.run.excludedFiles ? ` ${r.run.excludedFiles} changed files were excluded.` : r.run.exclusions?.excluded_files ? ` ${r.run.exclusions.excluded_files} changed files were excluded by .inkspectignore at ${r.run.exclusions.ignore.revision.revision_id.slice(0, 7)}.` : ""}</p>
       {!r.findings.length && value.fix_prompt && <FixPrompt label="AI verification prompt" value={value.fix_prompt} />}
       {!!r.assessments.length && <details className={styles.disclosure}><summary>Checks assessed <span>{r.assessments.length}</span></summary>{r.assessments.map((assessment, index) => <div className={styles.assessment} key={index}><strong>{assessment.target.id}</strong><span className={styles.badge}>{assessment.status.replaceAll("_", " ")}</span><p>{assessment.reason}</p><EvidenceLinks ids={assessment.evidence_ids} /></div>)}</details>}
     </section>

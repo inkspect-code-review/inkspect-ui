@@ -24,8 +24,12 @@ import { SearchableSelect } from "./ui/searchable-select";
 import { subscribeFindingStatusChanges } from "@inkspect/core/lib/finding-status-events";
 import { Skeleton } from "./ui/skeleton";
 
+import { historyEntries, readHistoryPages, type AdditionalHistory, type HistoryEntry } from "./review-history-list";
+
+export type { AdditionalHistory } from "./review-history-list";
+
 const terminal = (status: string) => ["completed", "failed", "cancelled"].includes(status);
-export function ReviewWorkspace({ organizationId, initialRepositories }: { organizationId: string; initialRepositories?: ReviewRepository[] }) {
+export function ReviewWorkspace({ organizationId, initialRepositories, additionalHistory }: { organizationId: string; initialRepositories?: ReviewRepository[]; additionalHistory?: AdditionalHistory }) {
   const { ReviewAllowance, ReviewUsage, ReviewRepositoryAction, confirmReview, historySupplement } = useDashboardWidgets();
   const edition = useDashboardEdition();
   const [repositories, setRepositories] = useState<ReviewRepository[]>(initialRepositories || []);
@@ -36,6 +40,15 @@ export function ReviewWorkspace({ organizationId, initialRepositories }: { organ
   const [page, setPage] = useState(1), [hasMore, setHasMore] = useState(false);
   const [loadedRepository, setLoadedRepository] = useState(-1);
   const [reviews, setReviews] = useState<ReviewJob[]>([]), [selectedId, setSelectedId] = useState("");
+  const [extraPage, setExtraPage] = useState(1);
+  const [extra, setExtra] = useState<{ repository: number; pages: HistoryEntry[][]; hasMore: boolean }>({ repository: -1, pages: [], hasMore: false });
+  const [extraError, setExtraError] = useState("");
+  const extraReady = !additionalHistory || extra.repository === repository || !!extraError;
+  const visibleReviews = historyEntries(loadedRepository === repository ? reviews : [], extra.repository === repository ? extra.pages.flat() : []);
+  const [linkedExtra, setLinkedExtra] = useState(additionalHistory?.linkedId);
+  const activeId = visibleReviews.some(row => row.id === selectedId) ? selectedId : linkedExtra || visibleReviews[0]?.id;
+  const nativeSelected = loadedRepository === repository && reviews.some(row => row.job.id === activeId);
+  const extraSelected = additionalHistory && !nativeSelected && activeId && (activeId === linkedExtra || (extra.repository === repository && extra.pages.some(rows => rows.some(row => row.id === activeId))));
   const [report, setReport] = useState<{ jobId: string; value: ReportResponse } | null>(null);
   const [findingStatusRevision, setFindingStatusRevision] = useState(0);
   useEffect(() => subscribeFindingStatusChanges(organizationId, () => setFindingStatusRevision(value => value + 1)), [organizationId]);
@@ -44,10 +57,13 @@ export function ReviewWorkspace({ organizationId, initialRepositories }: { organ
   const [composerRepository, setComposerRepository] = useState(initialRepositories?.[0]?.id || 0);
   const [repositoriesReady, setRepositoriesReady] = useState(false);
   const [historyWarning, setHistoryWarning] = useState("");
-  const selected = loadedRepository === repository ? reviews.find(r => r.job.id === selectedId) : undefined;
+  const selected = loadedRepository === repository ? reviews.find(r => r.job.id === activeId) : undefined;
   const currentRepository = historyRepositories.find(item => item.id === repository);
-  const chooseRepository = !repository || !!currentRepository?.archived;
+  const chooseRepository = !repository || !currentRepository || !!currentRepository.archived;
+  const composerNeedsHistory = !!currentRepository?.archived || (!!repository && !currentRepository);
   const activeRepository = composing ? (chooseRepository ? composerRepository : repository) : Number(selected?.snapshot.repository_id) || repository;
+  const nativeRepo = !repository || historyRepositories.some(repo => repo.id === repository);
+  const historyOptions = [...historyRepositories, ...(additionalHistory?.repositories.filter(repo => !historyRepositories.some(item => item.id === repo.id)) ?? [])];
   const [channel, setChannel] = useState(""), [live, setLive] = useState<LiveState>("connecting");
   const [configuration, setConfiguration] = useState<{ repository: number; mode: string; activity: boolean; credentialId: string; composerJobs?: ReviewJob[] } | null>(null);
   const mode = configuration?.repository === activeRepository ? configuration.mode : "";
@@ -71,8 +87,14 @@ export function ReviewWorkspace({ organizationId, initialRepositories }: { organ
   const detailRequest = useCallback((action: string, extra: Record<string, string> = {}, body?: object, signal?: AbortSignal) => request(action, { ...extra, repositoryId: selected?.snapshot.repository_id || String(repository) }, body, signal), [request, selected?.snapshot.repository_id, repository]);
   useEffect(() => {
     const controller = new AbortController();
-    productFetch(`/api/reviews?${new URLSearchParams({ organizationId, action: "repositories" })}`, { cache: "no-store", signal: controller.signal }).then(async (response) => {
-      const value = await response.json(); if (!response.ok) throw new Error(value.error || "Could not load repositories.");
+    const catalog = additionalHistory && !additionalHistory.connected
+      ? Promise.resolve({ repositories: [], history_repositories: [], realtime_channel: "" })
+      : requestCatalog(organizationId, controller.signal);
+    catalog.catch(error => {
+      if (!additionalHistory || controller.signal.aborted) throw error;
+      setError(error.message || "Could not load repositories.");
+      return { repositories: initialRepositories ?? [], realtime_channel: "" };
+    }).then(value => {
       if (controller.signal.aborted) return;
       setRepositories(value.repositories);
       const historyCatalog: ReviewRepository[] = value.history_repositories ?? value.repositories;
@@ -81,18 +103,18 @@ export function ReviewWorkspace({ organizationId, initialRepositories }: { organ
       setComposerRepository(current => value.repositories.some((repo: ReviewRepository) => repo.id === current) ? current : value.repositories[0]?.id || 0);
       const query = new URLSearchParams(window.location.search);
       const linkedRepository = Number(query.get("repositoryId"));
-      if (!linkInitialized.current && historyCatalog.some(repo => repo.id === linkedRepository)) {
+      if (!linkInitialized.current && [...historyCatalog, ...(additionalHistory?.repositories ?? [])].some(repo => repo.id === linkedRepository)) {
         setRepository(linkedRepository);
         const job = query.get("jobId") || "";
         linkedJob.current = /^J-[a-f0-9]{32}$/.test(job) ? job : null;
         linkedReview.current = linkedJob.current ? { jobId: linkedJob.current, repositoryId: linkedRepository } : null;
-      } else setRepository(current => historyCatalog.some(repo => repo.id === current) ? current : 0);
+      } else setRepository(current => [...historyCatalog, ...(additionalHistory?.repositories ?? [])].some(repo => repo.id === current) ? current : 0);
       linkInitialized.current = true;
       setChannel(value.realtime_channel);
       if (value.unavailable_connections) setError(value.unavailable_accounts?.length ? `Some repositories from ${value.unavailable_accounts.join(", ")} couldn’t be loaded for reviews. Available repositories are shown below.` : "Some GitHub accounts couldn’t be loaded for reviews. Available repositories are shown below.");
     }).catch((error) => { reportBrowserError("browser.review.workspace", error); if (!controller.signal.aborted) setError(error.message); }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [organizationId, refresh, initialRepositories]);
+  }, [organizationId, refresh, initialRepositories, additionalHistory]);
   useEffect(() => {
     if (!composing || !activeRepository) return;
     const controller = new AbortController();
@@ -107,12 +129,12 @@ export function ReviewWorkspace({ organizationId, initialRepositories }: { organ
     const controller = new AbortController();
     Promise.all([
       scopedRequest("configuration", {}, undefined, controller.signal),
-      currentRepository?.archived ? scopedRequest("jobs", {}, undefined, controller.signal) : undefined,
+      composerNeedsHistory ? scopedRequest("jobs", {}, undefined, controller.signal) : undefined,
     ]).then(([value, history]) => {
       if (!controller.signal.aborted) { setConfiguration({ repository: activeRepository, mode: value.execution_mode, activity: value.activity_available === true, credentialId: value.byok_credential_id || "", composerJobs: history?.reviews }); }
     }).catch(error => { reportBrowserError("browser.review.configuration", error); if (!controller.signal.aborted) setError(error.message); });
     return () => controller.abort();
-  }, [composing, activeRepository, scopedRequest, refresh, currentRepository?.archived]);
+  }, [composing, activeRepository, scopedRequest, refresh, composerNeedsHistory]);
  const [activityRevision,setActivityRevision]=useState(0);
   useEffect(() => {
     if (!channel) return;
@@ -130,30 +152,53 @@ export function ReviewWorkspace({ organizationId, initialRepositories }: { organ
       busy = true; clearTimeout(timer);
       controller = new AbortController();
       try {
-        const value = await request(repository ? "jobs" : "history", {}, undefined, controller.signal);
-        const linked = linkedReview.current && (!repository || repository === linkedReview.current.repositoryId) ? linkedReview.current : null;
+        const value = additionalHistory && (!additionalHistory.connected || !nativeRepo) ? { reviews: [] } : await request(repository ? "jobs" : "history", {}, undefined, controller.signal);
+        const linked = linkedReview.current && linkedReview.current.jobId !== additionalHistory?.linkedId && (!repository || repository === linkedReview.current.repositoryId) ? linkedReview.current : null;
         const sorted = await reviewsWithLinkedJob(value.reviews, linked, () => request("job", { jobId: linked!.jobId, repositoryId: String(linked!.repositoryId) }, undefined, controller!.signal));
         if (!stopped) {
           setHistoryWarning(value.unavailable_repositories ? `${value.unavailable_repositories} repositories could not be loaded. Showing available reviews.` : "");
           setLoadedRepository(repository); setReviews(sorted);
           const requested = linkedJob.current;
-          setSelectedId(id => selectedReviewId(sorted, id, requested));
-          if (requested && sorted.some(row => row.job.id === requested)) linkedJob.current = null;
+          setSelectedId(id => additionalHistory ? requested || id : selectedReviewId(sorted, id, requested));
+          if (requested && (additionalHistory || sorted.some(row => row.job.id === requested))) linkedJob.current = null;
         }
-      } catch (error) { reportBrowserError("browser.review.workspace", error); if (!stopped && !controller.signal.aborted) setError((error as Error).message); }
+      } catch (error) { reportBrowserError("browser.review.workspace", error); if (!stopped && !controller.signal.aborted) {
+          setError((error as Error).message);
+          if (additionalHistory) setLoadedRepository(repository);
+        } }
       busy = false;
       if (!stopped) { timer = setTimeout(load, queued ? 1000 : 30_000); queued = false; }
     };
     refreshJobs.current = () => { void load(); };
     void load(); return () => { stopped = true; refreshJobs.current = null; clearTimeout(timer); controller?.abort(); };
-  }, [request, repository, repositoriesReady]);
+  }, [request, repository, repositoriesReady, additionalHistory, nativeRepo]);
+  useEffect(() => {
+    if (!additionalHistory || !repositoriesReady) return;
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    async function load() {
+      try {
+        const { pages, hasMore } = await readHistoryPages(additionalHistory!.read, repository, extraPage, controller.signal);
+        if (controller.signal.aborted) return;
+        setExtra({ repository, pages, hasMore });
+        if (pages.length < extraPage) setExtraPage(pages.length);
+        setExtraError("");
+      } catch {
+        if (!controller.signal.aborted) setExtraError("Could not load additional reviews.");
+      } finally {
+        if (!controller.signal.aborted) timer = setTimeout(load, 30_000);
+      }
+    }
+    void load();
+    return () => { controller.abort(); clearTimeout(timer); };
+  }, [additionalHistory, repository, repositoriesReady, extraPage, refresh, revision]);
   useEffect(() => { refreshJobs.current?.(); }, [revision, findingStatusRevision]);
   useEffect(() => {
     const controller = new AbortController();
     Promise.resolve().then(() => { if (!controller.signal.aborted) setReport(current => current?.jobId === selected?.job.id ? current : null); });
-    if (selected?.job.status === "completed") detailRequest("report", { jobId: selected.job.id }, undefined, controller.signal).then(value => { if (!controller.signal.aborted) setReport({ jobId: selected.job.id, value }); }).catch((error) => { reportBrowserError("browser.review.workspace", error); if (!controller.signal.aborted) setError(error.message); });
+    if (extraReady && selected?.job.status === "completed") detailRequest("report", { jobId: selected.job.id }, undefined, controller.signal).then(value => { if (!controller.signal.aborted) setReport({ jobId: selected.job.id, value }); }).catch((error) => { reportBrowserError("browser.review.workspace", error); if (!controller.signal.aborted) setError(error.message); });
     return () => controller.abort();
-  }, [selected?.job.id, selected?.job.status, detailRequest, findingStatusRevision, revision]);
+  }, [selected?.job.id, selected?.job.status, detailRequest, findingStatusRevision, revision, extraReady]);
   const [confirming,setConfirming] = useState(false);
   const confirmation = confirmReview?.(activeRepository);
   const pull = pulls.find((p) => p.number === pullNumber);
@@ -163,7 +208,7 @@ export function ReviewWorkspace({ organizationId, initialRepositories }: { organ
   const historyReady = loadedRepository === repository && configuration?.repository === activeRepository && activeRepository > 0;
   async function start(confirmed = false) {
     if (!pull || pull.draft || mutation.current || pullsLoading || !historyReady) return;
-    if (action.kind === "view" && !repeatOf) { if (currentRepository?.archived) setRepository(activeRepository); setSelectedId(action.jobId); setComposing(false); return; }
+    if (action.kind === "view" && !repeatOf) { if (composerNeedsHistory) setRepository(activeRepository); setSelectedId(action.jobId); setComposing(false); return; }
     if (confirmation && !confirmed) { setConfirming(true); return; }
     await submitReview(activeRepository, pull, action.kind === "retry" ? action.jobId : undefined, confirmed, repeatOf);
     setConfirming(false);
@@ -173,7 +218,7 @@ export function ReviewWorkspace({ organizationId, initialRepositories }: { organ
     mutation.current = true; setPending(true); setError("");
     try {
       const value: ReviewJob = await request("start", { repositoryId: String(repositoryId), ...(confirmed ? { confirmHead:snapshot.head, ...(repeat ? {repeatOf:repeat} : {}) } : {}) }, { number: snapshot.number, base_tip: snapshot.base_tip, head: snapshot.head, ...(retryOf ? { retry_of: retryOf } : {}) });
-      if (mounted.current) { if (currentRepository?.archived) setRepository(repositoryId); setReviews((rows) => newestReviews([value, ...rows.filter((r) => r.job.id !== value.job.id)])); setSelectedId(value.job.id); setComposing(false); setRevision((v) => v + 1); }
+      if (mounted.current) { if (composerNeedsHistory) setRepository(repositoryId); setReviews((rows) => newestReviews([value, ...rows.filter((r) => r.job.id !== value.job.id)])); setSelectedId(value.job.id); setComposing(false); setRevision((v) => v + 1); }
     } catch (error) { reportBrowserError("browser.review.workspace", error); if (mounted.current) setError((error as Error).message); }
     finally { mutation.current = false; if (mounted.current) setPending(false); }
   }
@@ -203,7 +248,6 @@ export function ReviewWorkspace({ organizationId, initialRepositories }: { organ
     } catch (failure) { if (mounted.current) setError(failure instanceof Error ? failure.message : "Could not open the latest review."); }
     finally { mutation.current = false; if (mounted.current) setPending(false); }
   };
-  const visibleReviews = loadedRepository === repository ? newestReviews(reviews) : [];
   const selectedPullNumber = Number(selected?.snapshot.url.match(/\/pull\/([1-9]\d*)\/?$/)?.[1]);
   const selectedPull = selected && pulls.find(item => item.url === selected.snapshot.url);
   const savedTitle = selected?.snapshot.title || selectedPull?.title;
@@ -217,7 +261,7 @@ export function ReviewWorkspace({ organizationId, initialRepositories }: { organ
       : <ReviewCostView cost={selected.billing_usage?.provider_cost} />)}
   </div> : null;
   const actionRepository = ReviewRepositoryAction && repositories.find(repo => repo.id === (repository || Number(selected?.snapshot.repository_id)));
-  const detailLoading = loading || !repositoriesReady || loadedRepository !== repository;
+  const detailLoading = loading || !repositoriesReady || loadedRepository !== repository || !extraReady;
   return <section className={styles.workspace} aria-label="Reviews workspace">
     <aside className={styles.listPane} aria-label="Repositories and reviews">
       <div className={styles.listHeading}><h1>Reviews</h1><button className={styles.iconButton} aria-label="Start a new review" title="Start a new review" disabled={detailLoading || !repositories.length || pending} aria-haspopup="dialog" onClick={openComposer}><Plus size={17} /></button></div>
@@ -225,32 +269,33 @@ export function ReviewWorkspace({ organizationId, initialRepositories }: { organ
         <label htmlFor="review-repository">Repository</label>
         <SearchableSelect id="review-repository" label="Repository" value={String(repository)} disabled={loading || pending}
           placeholder={loading ? "Loading repositories…" : "Choose a repository"} searchPlaceholder="Search repositories…" emptyMessage="No matching repositories."
-          options={[{ value: "0", label: "All repositories" }, ...historyRepositories.map(repo => ({ value: String(repo.id), label: `${repo.full_name}${repo.archived ? " (Disconnected)" : ""}` }))]}
-          onValueChange={value => { if (Number(value) === repository) return; setRepository(Number(value)); setPage(1); setPulls([]); setPullNumber(0); setHasMore(false); setSelectedId(""); setLoadedRepository(-1); setReviews([]); setReport(null); setComposing(false); setError(""); }} />
+          options={[{ value: "0", label: "All repositories" }, ...historyOptions.map(repo => ({ value: String(repo.id), label: `${repo.full_name}${repo.archived ? " (Disconnected)" : ""}` }))]}
+          onValueChange={value => { if (Number(value) === repository) return; linkedJob.current = null; linkedReview.current = null; setRepository(Number(value)); setLinkedExtra(undefined); setExtraPage(1); setExtraError(""); setPage(1); setPulls([]); setPullNumber(0); setHasMore(false); setSelectedId(""); setLoadedRepository(-1); setReviews([]); setReport(null); setComposing(false); setError(""); }} />
       </div>
       <div className={styles.historyHeading}><h2>Review history</h2><span>Newest first</span></div>
-      <Notification tone="info" message={historyWarning} />
-      <nav className={styles.history} aria-label="Review history" aria-busy={!repositoriesReady || loadedRepository !== repository}>
-        {!repositoriesReady || loadedRepository !== repository ? <p>Loading reviews…</p> : !visibleReviews.length ? <p>{historySupplement ? "No workspace reviews yet." : "No reviews yet. Start with an open pull request."}</p> : <ol>{visibleReviews.map((row, index) => {
-          const summary = row.finding_summary;
-          return <li key={row.job.id}>
-          <button aria-current={row.job.id === selectedId ? "true" : undefined} data-findings-tone={summary?.open ? summary.urgent ? "danger" : "warning" : undefined} onClick={() => { setSelectedId(row.job.id); setComposing(false); }}>
-            <span className={styles.historyTitle}><GitPullRequest size={15} /><strong>PR #{row.snapshot.url.split("/").at(-1)}</strong>{index === 0 && <small>Latest</small>}</span>
-            <span className={styles.historySubtitle}>{!repository && <span className={styles.historyRepository}>{historyRepositories.find(repo => String(repo.id) === row.snapshot.repository_id)?.full_name || "Repository"}</span>}{pulls.find(item => item.url === row.snapshot.url)?.title || `Commit ${row.snapshot.head.slice(0, 7)}`}</span>
-            <span className={styles.historyMeta}><span className={styles.status} data-status={row.job.status}>{row.job.status.replaceAll("_", " ")}</span><time dateTime={row.job.created_at} title={new Date(row.job.created_at).toLocaleString()}>{new Date(row.job.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })} {new Date(row.job.created_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</time></span>
+      <Notification tone="info" message={historyWarning || extraError} action={extraError ? { label: "Retry", onClick: () => setRefresh(v => v + 1) } : undefined} />
+      <nav className={styles.history} aria-label="Review history" aria-busy={detailLoading}>
+        {detailLoading ? <p>Loading reviews…</p> : !visibleReviews.length ? <p>{historySupplement ? "No workspace reviews yet." : "No reviews yet. Start with an open pull request."}</p> : <ol>{visibleReviews.map((row, index) => {
+          const summary = row.summary;
+          return <li key={row.id}>
+          <button aria-current={row.id === activeId ? "true" : undefined} data-findings-tone={summary?.open ? summary.urgent ? "danger" : "warning" : undefined} onClick={() => { linkedJob.current = null; setSelectedId(row.id); setLinkedExtra(undefined); setComposing(false); }}>
+            <span className={styles.historyTitle}><GitPullRequest size={15} /><strong>PR #{row.number}</strong>{index === 0 && <small>Latest</small>}</span>
+            <span className={styles.historySubtitle}>{!repository && <span className={styles.historyRepository}>{row.repositoryName || historyOptions.find(repo => repo.id === row.repositoryId)?.full_name || "Repository"}</span>}{pulls.find(item => item.number === Number(row.number) && row.repositoryId === activeRepository)?.title || `Commit ${row.head.slice(0, 7)}`}</span>
+            <span className={styles.historyMeta}><span className={styles.status} data-status={row.status}>{row.status.replaceAll("_", " ")}</span><time dateTime={row.createdAt} title={new Date(row.createdAt).toLocaleString()}>{new Date(row.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })} {new Date(row.createdAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</time></span>
             {!!summary?.open && <span className={styles.historyFindings}>{summary.open} open {summary.open === 1 ? "finding" : "findings"}</span>}
           </button>
         </li>; })}</ol>}
+        {extra.repository === repository && extra.hasMore && <button disabled={extraPage > extra.pages.length} onClick={() => setExtraPage(n => n + 1)}>Load more reviews</button>}
         {historySupplement?.(repository)}
       </nav>
       <footer className={styles.sidebarFooter}><span className={styles.live} data-live={live === "live"} role="status">{live === "live" ? "Live updates" : "Checking for updates"}</span><Link href="/dashboard?view=repositories">Manage repositories <ArrowUpRight size={13} /></Link></footer>
     </aside>
     <div className={styles.detailPane}>
-      <header className={styles.workspaceHeader}><div className={styles.headerRepository}><span>{actionRepository?.full_name || currentRepository?.full_name || "All repositories"}</span>
+      <header className={styles.workspaceHeader}><div className={styles.headerRepository}><span>{actionRepository?.full_name || historyOptions.find(item => item.id === repository)?.full_name || "All repositories"}</span>
         {ReviewRepositoryAction && actionRepository && <ReviewRepositoryAction key={actionRepository.id} repositoryId={actionRepository.id} repositoryName={actionRepository.full_name} />}
       </div>{!detailLoading && <button aria-haspopup="dialog" onClick={openComposer} disabled={!repositories.length || pending}><Plus size={14} />New review</button>}</header>
       <Notification tone="error" message={error} action={{ label: "Retry loading reviews", onClick: () => { setError(""); setRefresh(v => v + 1); setRevision(v => v + 1); } }} />
-      {detailLoading ? !error && <ReviewSkeleton /> : <>
+      {detailLoading && (!linkedExtra || !repositoriesReady || loadedRepository !== repository) ? !error && <ReviewSkeleton /> : <>
       <Dialog.Root open={composing} onOpenChange={open => { if (!pending) setComposing(open); }}>
         <Dialog.Portal><Dialog.Overlay className={styles.composerOverlay} />
         <Dialog.Content id="review-composer" className={styles.composer} aria-busy={pending} onCloseAutoFocus={event => {
@@ -279,7 +324,7 @@ export function ReviewWorkspace({ organizationId, initialRepositories }: { organ
         </Dialog.Content></Dialog.Portal>
       </Dialog.Root>
       <div className={styles.detail}>
-        {!selected ? <div className={styles.empty}><GitPullRequest size={28} /><h2>Your next review starts here</h2><p>{repositories.length ? "Choose a review from the sidebar, or review an open pull request." : "Connect a repository to start reviewing pull requests."}</p>{repositories.length ? <button className={styles.primary} aria-haspopup="dialog" onClick={openComposer}>Start a review</button> : <Link href="/dashboard?view=integrations">Connect GitHub</Link>}</div> : <>
+        {extraSelected && activeId ? additionalHistory.detail(activeId, repository) : !selected ? <div className={styles.empty}><GitPullRequest size={28} /><h2>Your next review starts here</h2><p>{repositories.length ? "Choose a review from the sidebar, or review an open pull request." : "Connect a repository to start reviewing pull requests."}</p>{repositories.length ? <button className={styles.primary} aria-haspopup="dialog" onClick={openComposer}>Start a review</button> : <Link href="/dashboard?view=integrations">Connect GitHub</Link>}</div> : <>
           <header className={styles.jobHeading}><div><div className={styles.jobTitle}><h2><ReviewPullTitle title={savedTitle} organizationId={selectedRepositoryConnected ? organizationId : undefined} repositoryId={selected.snapshot.repository_id} number={selected.snapshot.url.match(/\/pull\/([1-9]\d*)$/)?.[1]} fallback={`Pull request #${selected.snapshot.url.split("/").at(-1)}`} /></h2><span className={styles.status} data-status={selected.job.status}>{selected.job.status.replaceAll("_", " ")}</span></div><div className={styles.jobMeta}><a href={selected.snapshot.url} target="_blank" rel="noreferrer">PR #{selected.snapshot.url.split("/").at(-1)} <ArrowUpRight size={12} /></a><time dateTime={selected.job.created_at}>{new Date(selected.job.created_at).toLocaleString()}</time><code title={selected.snapshot.head}>{selected.snapshot.head.slice(0, 7)}</code></div></div>{!terminal(selected.job.status) && <button disabled={pending || selected.job.cancel_requested} onClick={cancel}>{selected.job.cancel_requested ? "Cancelling…" : "Cancel review"}</button>}</header>
           {!selectedRepositoryConnected && <p className={styles.notice}>This repository is no longer connected. Your saved review is available to read.</p>}
           {selected.job.status === "completed" ? report?.jobId === selected.job.id ? <ReviewReportView key={selected.job.id} organizationId={organizationId} value={report.value} details={runDetails} fix={selectedRepositoryConnected ? <ReviewFix key={selected.job.id} openFindingCount={selected.finding_summary?.open ?? summarizeOpenFindings(report.value.report.findings, report.value.finding_statuses).open} jobId={selected.job.id} pullUrl={selected.snapshot.url} request={detailRequest} onReviewLatest={reviewLatest} /> : undefined} /> : <ReviewSkeleton heading={false} /> : <div className={styles.runState}><h3>{selected.job.status === "failed" ? "Review could not finish" : selected.job.status === "cancelled" ? "Review cancelled" : selected.job.status === "paused" ? "Review paused" : selected.job.status === "running" ? "Review in progress" : "Review queued"}</h3><p>{selected.job.status === "paused" ? edition.reviewPausedMessage : pausedAhead ? `Waiting for the paused review of PR #${pausedAhead.snapshot.url.split("/").at(-1)} to resume.` : selected.job.status === "queued" ? "Waiting for a review worker to start." : terminal(selected.job.status) ? "Start a new review of this pull request when you’re ready to try again." : "You can leave this page. The review continues in the background."}</p><Notification tone="error" message={selected.error_message} notificationKey={selected.job.id} />
@@ -311,4 +356,12 @@ function ReviewSkeleton({ heading = true }: { heading?: boolean }) {
       <div className={styles.skeletonSection}><Skeleton className={styles.skeletonLabel} />{[0, 1].map(index => <div key={index} className={styles.skeletonFinding}><Skeleton className={styles.skeletonShort} /><Skeleton /><Skeleton /></div>)}</div>
     </div>
   </div>;
+}
+
+async function requestCatalog(organizationId: string, signal: AbortSignal) {
+  const params = new URLSearchParams({ organizationId, action: "repositories" });
+  const response = await productFetch(`/api/reviews?${params}`, { cache: "no-store", signal });
+  const value = await response.json();
+  if (!response.ok) throw new Error(value.error || "Could not load repositories.");
+  return value;
 }

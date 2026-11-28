@@ -6,6 +6,7 @@ import { ReviewCostView } from "@inkspect/ui/components/review-cost";
 import { ReviewDiagram, ReviewReportView } from "@inkspect/ui/components/review-report";
 import type { ReportResponse } from "@inkspect/core/lib/review-types";
 import { allFindingFixPrompts, findingFixPrompt } from "@inkspect/core/lib/review-prompts";
+import { publishedDiagramSource } from "../../../src/components/published-review-diagram";
 import { reviewSarif, downloadReviewSarif } from "../../../src/components/review-sarif";
 
 function fixture(): ReportResponse {
@@ -91,7 +92,7 @@ test("the overview downloads an empty, completed SARIF report as a local file", 
 
 test("structured reports work without Markdown and preserve important review information", () => {
   const html = renderToStaticMarkup(<ReviewReportView value={fixture()} />);
-  for (const text of ["Changes requested", "Boundary error", "Code quality", "Security", "Partially aligned", "Prime factors", "src/math.ts:12–14", "Suggested fix", "Run perfect-square tests", "Tests could not run", "2 changed files were excluded", "coverage is incomplete", "could not be checked", "recorded snapshot", "Math flow", "evidence-E1"]) assert.ok(html.toLowerCase().includes(text.toLowerCase()), text);
+  for (const text of ["Changes requested", "Boundary error", "Code quality", "Security", "Partially aligned", "Prime factors", "src/math.ts:12–14", "Suggested fix", "Run perfect-square tests", "Tests could not run", "2 changed files were excluded", "coverage is incomplete", "could not be checked", "recorded snapshot", "Behavior map", "evidence-E1"]) assert.ok(html.toLowerCase().includes(text.toLowerCase()), text);
   assert.match(html, /&lt;script&gt;unsafe/);
   assert.doesNotMatch(html, /<script|<iframe|<pre/);
   assert.match(html, /<meter[^>]*value="3"/);
@@ -179,6 +180,16 @@ test("bulk copying preserves engine prompts in finding order and never copies a 
   assert.equal(allFindingFixPrompts(value), "");
 });
 
+test("the review map reads the published flowchart verbatim and ignores nested example fences", () => {
+  for (const direction of ["TD", "LR"]) {
+    const graph = ['flowchart ' + direction, '    n0{"Valid?"}:::decision', '    n1["Save"]', '    n0 -.->|"yes"| n1'].join("\n");
+    const summary = ["````text", "```mermaid", "example", "```", "````", "### Flow", "````mermaid", graph, "````"].join("\n");
+    assert.equal(publishedDiagramSource(summary), graph);
+  }
+  assert.equal(publishedDiagramSource("No diagram"), undefined);
+  assert.equal(publishedDiagramSource(), undefined);
+});
+
 test("behavior maps keep accessible edge labels without a repeated text legend", () => {
   const diagram = fixture().report.diagram!;
   diagram.nodes.push({ id: "b", label: "Output", evidence_ids: ["E1"] });
@@ -218,4 +229,17 @@ test("the fix banner mounts once above the tabs and reserves space while PR stat
   assert.equal(renderToStaticMarkup(<ReviewFix {...props} openFindingCount={0} />), "", "resolved findings must not show an idle fix action");
   value.report.findings = [];
   assert.doesNotMatch(renderToStaticMarkup(<ReviewReportView value={value} fix={fix} />), /Fix with Inkspect AI/);
+});
+
+test("saved reports render the same tabs, scores and export with missing legacy metadata", () => {
+  const { report } = fixture();
+  const saved = { ...report, decision: null, run: { ...report.run, coverage_complete: null, excludedFiles: null },
+    findings: report.findings.map(f => ({ ...f, location: null })), verification_gaps: [{ reason: "Manual check", blocking: null }] };
+  const html = renderToStaticMarkup(<ReviewReportView value={{ report: saved }} details={<p>Saved run</p>} />);
+  for (const text of ["Overview", "Findings", "Verification", "Details", "Download SARIF", "Review completed", "Coverage was not recorded"]) assert.ok(html.includes(text), text);
+  assert.doesNotMatch(html, /Coverage is incomplete|Copy fix prompts|undefined:/);
+  const run = reviewSarif(saved).runs[0];
+  assert.equal(run.results.length, saved.findings.length);
+  assert.deepEqual(run.results[0].locations, []);
+  assert.equal("coverageComplete" in run.properties, false);
 });
